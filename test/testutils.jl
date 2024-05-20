@@ -107,3 +107,51 @@ function write_linear_interaction_dataset_estimands()
     serialize("test/assets/estimands/estimands_ates.jls", linear_interaction_dataset_ATEs())
 end
 
+function make_integration_test_configuration()
+    estimands = [
+        IATE(
+            outcome = "BINARY_1",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)),
+            treatment_confounders = (RSID_2 = [], TREAT_1 = [])
+        ),
+        ATE(
+            outcome = "BINARY_2",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"),),
+            treatment_confounders = (RSID_2 = [22001], ),
+            outcome_extra_covariates = ["COV_1", 21003]
+        ),
+        CM(
+            outcome = "CONTINUOUS_2",
+            treatment_values = (RSID_2 = "AA", ),
+            treatment_confounders = (RSID_2 = [22001],),
+            outcome_extra_covariates = ["COV_1", 21003]
+        ),
+        ATE(
+            outcome = "CONTINUOUS_2",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")),
+            treatment_confounders = (RSID_2 = [], RSID_198 = []),
+            outcome_extra_covariates = [22001]
+        ),
+        ComposedEstimand(
+            TMLE.joint_estimand, (
+                CM(
+                outcome = "BINARY_1",
+                treatment_values = (RSID_2 = "GG", RSID_198 = "AG"),
+                treatment_confounders = (RSID_2 = [], RSID_198 = []),
+                outcome_extra_covariates = [22001]
+            ),
+                CM(
+                outcome = "BINARY_1",
+                treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
+                treatment_confounders = (RSID_2 = [], RSID_198 = []),
+                outcome_extra_covariates = [22001]
+            ))
+        )
+    ]
+    return Configuration(estimands=estimands)
+end
+
+function save_integration_test_configuration(path)
+    config = make_integration_test_configuration()
+    TMLE.write_yaml(path, config)
+end
