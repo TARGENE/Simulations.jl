@@ -19,9 +19,7 @@ using Arrow
 using ArgParse
 using JSON
 using Serialization
-using Makie
 using CSV
-using CairoMakie
 using TargeneCore
 
 include("utils.jl")
