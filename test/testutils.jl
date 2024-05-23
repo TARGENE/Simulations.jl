@@ -107,7 +107,7 @@ function write_linear_interaction_dataset_estimands()
     serialize("test/assets/estimands/estimands_ates.jls", linear_interaction_dataset_ATEs())
 end
 
-function make_integration_test_configuration()
+function estimands_and_traits_to_variants_matching_bgen()
     estimands = [
         IATE(
             outcome = "BINARY_1",
@@ -128,7 +128,7 @@ function make_integration_test_configuration()
         ),
         ATE(
             outcome = "CONTINUOUS_2",
-            treatment_values = (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")),
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "GA", control = "AA")),
             treatment_confounders = (RSID_2 = [], RSID_198 = []),
             outcome_extra_covariates = [22001]
         ),
@@ -136,22 +136,28 @@ function make_integration_test_configuration()
             TMLE.joint_estimand, (
                 CM(
                 outcome = "BINARY_1",
-                treatment_values = (RSID_2 = "GG", RSID_198 = "AG"),
+                treatment_values = (RSID_2 = "GG", RSID_198 = "GA"),
                 treatment_confounders = (RSID_2 = [], RSID_198 = []),
                 outcome_extra_covariates = [22001]
             ),
                 CM(
                 outcome = "BINARY_1",
-                treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
+                treatment_values = (RSID_2 = "AA", RSID_198 = "GA"),
                 treatment_confounders = (RSID_2 = [], RSID_198 = []),
                 outcome_extra_covariates = [22001]
             ))
         )
     ]
-    return Configuration(estimands=estimands)
+    traits_to_variants = Dict(
+        "BINARY_1" => ["RSID_2", "RSID_198"],
+        "CONTINUOUS_2" => ["RSID_2", "RSID_198"],
+        "BINARY_2" => ["RSID_2"],
+        )
+    return estimands, traits_to_variants
 end
 
-function save_integration_test_configuration(path)
-    config = make_integration_test_configuration()
+function save_configuration_macthing_bgen(path)
+    estimands, _ = estimands_and_traits_to_variants_matching_bgen()
+    config = TMLE.Configuration(estimands=estimands)
     TMLE.write_yaml(path, config)
 end

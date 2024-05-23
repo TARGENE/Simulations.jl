@@ -24,7 +24,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
 @testset "Integration Test Null Simulation" begin
     inputdir = mktempdir()
     estimands_filename = joinpath(inputdir, "estimands.yaml")
-    save_integration_test_configuration(estimands_filename)
+    save_configuration_macthing_bgen(estimands_filename)
     # Creating the inputs
     parsed_args = Dict(
         "out-prefix" => joinpath(inputdir, "final"), 

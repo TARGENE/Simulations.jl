@@ -5,13 +5,21 @@ using Test
 using Simulations
 using Serialization
 using JSON
+using TargeneCore
+using Arrow
+using DataFrames
+
+TARGENCORE_PKGDIR = pkgdir(TargeneCore)
+
+TARGENCORE_TESTDIR = joinpath(TARGENCORE_PKGDIR, "test")
 
 PKGDIR = pkgdir(Simulations)
+
 TESTDIR = joinpath(PKGDIR, "test")
 
 include(joinpath(TESTDIR, "testutils.jl"))
 
-function test_estimands()
+function gene_atlas_estimands()
     return [
         factorialEstimand(ATE, (rs502771=["TT", "TC", "CC"],), "sarcoidosis";
             confounders=[:PC1, :PC2, :PC3], 
@@ -32,10 +40,53 @@ function test_estimands()
     ]
 end
 
-function save_test_estimands(outdir)
-    estimands = test_estimands()
-    serialize(joinpath(outdir, "estimands_1.jls"), TMLE.Configuration(estimands=estimands[1:2]))
-    serialize(joinpath(outdir, "estimands_2.jls"), TMLE.Configuration(estimands=estimands[3:end]))
+function estimands_and_traits_to_variants_matching_bgen()
+    estimands = [
+        IATE(
+            outcome = "BINARY_1",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)),
+            treatment_confounders = (RSID_2 = [], TREAT_1 = [])
+        ),
+        ATE(
+            outcome = "BINARY_2",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"),),
+            treatment_confounders = (RSID_2 = [22001], ),
+            outcome_extra_covariates = ["COV_1", 21003]
+        ),
+        CM(
+            outcome = "CONTINUOUS_2",
+            treatment_values = (RSID_2 = "AA", ),
+            treatment_confounders = (RSID_2 = [22001],),
+            outcome_extra_covariates = ["COV_1", 21003]
+        ),
+        ATE(
+            outcome = "CONTINUOUS_2",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "GA", control = "AA")),
+            treatment_confounders = (RSID_2 = [], RSID_198 = []),
+            outcome_extra_covariates = [22001]
+        ),
+        ComposedEstimand(
+            TMLE.joint_estimand, (
+                CM(
+                outcome = "BINARY_1",
+                treatment_values = (RSID_2 = "GG", RSID_198 = "GA"),
+                treatment_confounders = (RSID_2 = [], RSID_198 = []),
+                outcome_extra_covariates = [22001]
+            ),
+                CM(
+                outcome = "BINARY_1",
+                treatment_values = (RSID_2 = "AA", RSID_198 = "GA"),
+                treatment_confounders = (RSID_2 = [], RSID_198 = []),
+                outcome_extra_covariates = [22001]
+            ))
+        )
+    ]
+    traits_to_variants = Dict(
+        "BINARY_1" => ["RSID_2", "RSID_198"],
+        "CONTINUOUS_2" => ["RSID_2", "RSID_198"],
+        "BINARY_2" => ["RSID_2"],
+        )
+    return estimands, traits_to_variants
 end
 
 @testset "Test get_trait_to_variants_from_estimands" begin
@@ -81,62 +132,88 @@ end
     )
 end
 
-@testset "Test density_estimation_inputs_from_gene_atlas" begin
+@testset "Test simulation_inputs_from_gene_atlas" begin
+    # The function `simulation_inputs_from_gene_atlas` is hard to test end to end due to
+    # data limitations. It is split into 3 subfunctions that we here test sequentially but 
+    # with different data.
+    verbosity = 0
+    # Here we use the real geneATLAS data
     tmpdir = mktempdir()
-    save_test_estimands(tmpdir)
-    outprefix = joinpath(tmpdir, "ga_sim_input")
-    copy!(ARGS, [
-        "simulation-inputs-from-ga",
-        joinpath(tmpdir, "estimands"),
-        string("--ga-download-dir=", joinpath(tmpdir, "gene_atlas_data")),
-        "--remove-ga-data=true",
-        string("--ga-trait-table=", joinpath(PKGDIR, "assets", "Traits_Table_GeneATLAS.csv")),
-        "--maf-threshold=0.01",
-        "--pvalue-threshold=1e-5",
-        "--distance-threshold=1e6",
-        string("--output-prefix=", outprefix),
-        "--batchsize=2",
-        "--max-variants=10"
-    ])
-    Simulations.julia_main()
-    # Estimand files
-    ## sarcoidosis has 3 estimands -> split in two batches (batchsize=2)
-    ## G20 Parkinson's disease has 1 estimand -> 1 file
-    estimands_files = filter(x -> occursin("ga_sim_input_estimands", x), readdir(tmpdir, join=true))
-    all_estimands = []
-    for f ∈ estimands_files
-        estimands = deserialize(f).estimands
-        append!(all_estimands, estimands)
-        if length(estimands) == 1
-            continue
-        elseif length(estimands) == 2
-            @test all(Simulations.get_outcome(Ψ) === :sarcoidosis for Ψ in estimands)
-        else
-            throw(ArgumentError("Batchsize should be max 2."))
-        end
-    end
-    @test length(all_estimands) == 4
+    estimands = gene_atlas_estimands()
+    trait_to_variants = Simulations.get_trait_to_variants(
+        estimands; 
+        verbosity=0, 
+        gene_atlas_dir=joinpath(tmpdir, "gene_atlas_data"),
+        remove_ga_data=true,
+        trait_table_path=joinpath("assets", "Traits_Table_GeneATLAS.csv"),
+        maf_threshold=0.01,
+        pvalue_threshold=1e-5,
+        distance_threshold=1e6,
+        max_variants=10,
+    )
+    @test length(trait_to_variants["sarcoidosis"]) == 10
+    @test issubset(("rs502771", "rs184270108"), trait_to_variants["sarcoidosis"])
+    @test length(trait_to_variants["G20 Parkinson's disease"]) == 10
+    @test issubset(("rs11868112", "rs6456121", "rs356219"), trait_to_variants["G20 Parkinson's disease"])
 
-    # Conditional densities
-    ## There should be 2 + n_variants densities
-    ## 10 variants per trait = 20 variants
-    requested_variants = ["rs502771", "rs184270108", "rs11868112", "rs6456121"]
-    variants = open(readlines, string(outprefix, "_variants.txt"))
-    @test issubset(requested_variants, variants)
-    @test length(variants) == 20 
-    conditional_density_files = filter(x -> occursin("ga_sim_input_conditional_density", x), readdir(tmpdir, join=true))
-    @test length(conditional_density_files) == length(variants) + 2
-    density_targets = Set([])
-    for f in conditional_density_files
-        conditional_density = JSON.parsefile(f)
-        push!(density_targets, conditional_density["outcome"])
-        if conditional_density["outcome"] ∈ variants
-            @test Set(conditional_density["parents"]) == Set(["PC2", "PC1", "PC3"])
-        else
-            @test issubset(["PC2", "PC1", "Age-Assessment", "PC3", "Genetic-Sex"], conditional_density["parents"])
-        end
+    # Dataset and validated estimands
+    # We change the data to match what is in the BGEN file
+    estimands, trait_to_variants = estimands_and_traits_to_variants_matching_bgen()
+    bgen_prefix = joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed" ,"ukbb")
+    traits_file = joinpath(TARGENCORE_TESTDIR, "data", "traits_1.csv")
+    pcs_file = joinpath(TARGENCORE_TESTDIR, "data", "pcs.csv")
+    positivity_constraint = 0
+    call_threshold = 0.9
+    dataset, validated_estimands = Simulations.get_dataset_and_validated_estimands(
+        estimands,
+        bgen_prefix,
+        traits_file,
+        pcs_file,
+        trait_to_variants;
+        call_threshold=call_threshold,
+        positivity_constraint=positivity_constraint,
+        verbosity=verbosity
+    )
+    @test names(dataset) == ["SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", "COV_1",
+        "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_198"]
+    @test size(dataset, 1) == 490
+    @test length(estimands) == length(validated_estimands)
+    # Check estimands have been matched to the dataset: GA -> AG
+    Ψ = validated_estimands[findfirst(x->x isa TMLE.ComposedEstimand, validated_estimands)]
+    @test Ψ.args[1].treatment_values.RSID_198 == "AG"
+    @test Ψ.args[2].treatment_values.RSID_198 == "AG"
+
+    # Now the writing
+    output_prefix = joinpath(tmpdir, "ga.input")
+    batchsize = 2
+    Simulations.write_ga_simulation_inputs(
+        output_prefix,
+        dataset,
+        validated_estimands,
+        trait_to_variants;
+        batchsize=batchsize,
+        verbosity=verbosity
+    )
+    # One dataset
+    loaded_dataset = Arrow.Table(string(output_prefix, ".data.arrow")) |> DataFrame
+    @test size(loaded_dataset) == (490, 13)
+    # 5 estimands split in 3 files of size (2, 2, 1)
+    loaded_estimands = reduce(
+        vcat, 
+        deserialize(string(output_prefix, ".estimands_$i.jls")).estimands for i in 1:3
+    )
+    @test loaded_estimands == validated_estimands
+    # 3 densities for the 3 outcomes
+    outcome_to_parents = Dict()
+    for i in 1:3
+        density = JSON.parsefile(string(output_prefix, ".conditional_density_$i.json"))
+        outcome_to_parents[density["outcome"]] = sort(density["parents"])
     end
-    @test density_targets == Set(vcat(variants, ["sarcoidosis", "G20 Parkinson's disease"]))
+    @test outcome_to_parents == Dict(
+        "BINARY_2"     => ["21003", "22001", "COV_1", "PC1", "PC2", "RSID_2"],
+        "CONTINUOUS_2" => ["21003", "22001", "COV_1", "PC1", "PC2", "RSID_198", "RSID_2"],
+        "BINARY_1"     => ["22001", "PC1", "PC2", "RSID_198", "RSID_2", "TREAT_1"]
+    )
 end
 
 end

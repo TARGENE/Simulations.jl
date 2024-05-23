@@ -171,7 +171,8 @@ function group_by_outcome(estimands)
     return groups
 end
 
-function simulation_inputs_from_gene_atlas(estimands_prefix;
+function get_trait_to_variants(estimands; 
+    verbosity=0, 
     gene_atlas_dir="gene_atlas_data",
     remove_ga_data=true,
     trait_table_path=joinpath("assets", "Traits_Table_GeneATLAS.csv"),
@@ -179,13 +180,8 @@ function simulation_inputs_from_gene_atlas(estimands_prefix;
     pvalue_threshold=1e-5,
     distance_threshold=1e6,
     max_variants=100,
-    output_prefix="ga_sim_input",
-    batchsize=10
     )
-    estimands = reduce(
-        vcat, 
-        TargetedEstimation.read_estimands_config(f).estimands for f ∈ files_matching_prefix(estimands_prefix)
-    )
+    verbosity > 0 && @info("Retrieve significant variants for each outcome.")
     # Retrieve traits and variants from estimands
     trait_to_variants = get_trait_to_variants_from_estimands(estimands)
     # Retrieve Trait to geneAtlas key map
@@ -199,44 +195,186 @@ function simulation_inputs_from_gene_atlas(estimands_prefix;
         distance_threshold=distance_threshold,
         max_variants=max_variants
     )
+    return trait_to_variants
+end
 
-    # Write all variants for dataset extraction
-    unique_variants = unique(vcat(values(trait_to_variants)...))
-    open(string(output_prefix, "_variants.txt"), "w") do io
-        for v in unique_variants
-            write(io, string(v, "\n"))
-        end
+function get_dataset_and_validated_estimands(
+    estimands,
+    bgen_prefix,
+    traits_file,
+    pcs_file,
+    trait_to_variants;
+    call_threshold=0.9,
+    positivity_constraint=0.,
+    verbosity=0
+    )
+    verbosity > 0 && @info("Calling genotypes.")
+    variants_set = Set(string.(vcat(values(trait_to_variants)...)))
+
+    genotypes = TargeneCore.call_genotypes(
+        bgen_prefix, 
+        variants_set, 
+        call_threshold
+    )
+    ## Read PCs and traits
+    traits = TargeneCore.read_csv_file(traits_file)
+    pcs = TargeneCore.read_csv_file(pcs_file)
+    ## Merge all together
+    dataset = TargeneCore.merge(traits, pcs, genotypes)
+
+    # Validate Estimand
+    verbosity > 0 && @info("Validating estimands.")
+    variables = TargeneCore.get_variables(estimands, traits, pcs)
+    estimands = TargeneCore.adjusted_estimands(
+        estimands, variables, dataset; 
+        positivity_constraint=positivity_constraint
+    )
+    return dataset, estimands
+end
+
+all_treatments(Ψ) = keys(Ψ.treatment_values)
+all_treatments(Ψ::TMLE.ComposedEstimand) = Tuple(union((all_treatments(arg) for arg ∈ Ψ.args)...))
+
+all_outcome_extra_covariates(Ψ) = Ψ.outcome_extra_covariates
+all_outcome_extra_covariates(Ψ::TMLE.ComposedEstimand) = Tuple(union((all_outcome_extra_covariates(arg) for arg ∈ Ψ.args)...))
+
+all_confounders(Ψ) = Tuple(union(values(Ψ.treatment_confounders)...))
+all_confounders(Ψ::TMLE.ComposedEstimand) = Tuple(union((all_confounders(arg) for arg ∈ Ψ.args)...))
+
+function write_densities(output_prefix, trait_to_variants, estimands)
+    outcome_parents = Dict(outcome => Set(variants) for (outcome, variants) in trait_to_variants)
+    for Ψ ∈ estimands
+        outcome = get_outcome(Ψ)
+        new_parents = string.(union(
+            all_outcome_extra_covariates(Ψ),
+            all_treatments(Ψ),
+            all_confounders(Ψ)
+        ))
+        union!(
+            outcome_parents[string(outcome)],
+            new_parents
+        )
     end
-    # Group and Write Estimands
-    batch_index = 1
-    for (outcome, estimands_group) ∈ group_by_outcome(estimands)
-        # Optimize order within a group and write estimands
-        estimands_group = groups_ordering(estimands_group)
-        for batch in Iterators.partition(estimands_group, batchsize)
-            batch_filename = string(output_prefix, "_estimands_", batch_index, ".jls")
-            serialize(batch_filename, TMLE.Configuration(estimands=batch))
-            batch_index += 1
-        end
-    end
-    # Write densities
     density_index = 1
-    confounders = get_confounders_assert_equal(estimands)
-    covariates = get_covariates_assert_equal(estimands)
-    ## Outcome densities
-    for (outcome, variants) in trait_to_variants
-        parents = vcat(variants, confounders..., covariates...)
-        open(string(output_prefix, "_conditional_density_", density_index, ".json"), "w") do io
-            JSON.print(io, Dict("outcome" => outcome, "parents" => parents), 1)
+    for (outcome, parents) in outcome_parents
+        open(string(output_prefix, ".conditional_density_", density_index, ".json"), "w") do io
+            JSON.print(io, Dict("outcome" => outcome, "parents" => collect(parents)), 1)
         end
         density_index += 1
     end
-    ## Propensity scores
-    for variant in unique_variants
-        open(string(output_prefix, "_conditional_density_", density_index, ".json"), "w") do io
-            JSON.print(io, Dict("outcome" => variant, "parents" => confounders), 1)
-        end
-        density_index += 1
-    end
+end
 
+function write_ga_simulation_inputs(
+    output_prefix,
+    dataset,
+    estimands,
+    trait_to_variants;
+    batchsize=10,
+    verbosity=0
+    )
+    verbosity > 0 && @info("Writing outputs.")
+    # Writing estimands and dataset
+    TargeneCore.write_tl_inputs(output_prefix, dataset, estimands; batch_size=batchsize)
+    # Writing densities
+    write_densities(output_prefix, trait_to_variants, estimands)
+end
+
+"""
+    simulation_inputs_from_gene_atlas(
+        estimands_prefix, 
+        bgen_prefix, 
+        traits_file, 
+        pcs_file;
+        gene_atlas_dir="gene_atlas_data",
+        remove_ga_data=true,
+        trait_table_path=joinpath("assets", "Traits_Table_GeneATLAS.csv"),
+        maf_threshold=0.01,
+        pvalue_threshold=1e-5,
+        distance_threshold=1e6,
+        max_variants=100,
+        output_prefix="ga_sim_input",
+        batchsize=10,
+        positivity_constraint=0,
+        call_threshold=0.9,
+        verbosity=0,
+        )
+
+This function generates input files for density estimates based simulations using 
+variants identified from the geneATLAS.
+
+## How are variants selected from the geneATLAS
+
+Association data is downloaded to `gene_atlas_dir` and cleaned afterwards 
+if `remove_ga_data`. For each outcome, variants are selected if:
+
+- They pass a significance threshold: `pvalue_threshold`.
+- They are at least `distance_threshold` away from other variants.
+- They are frequent: `maf_threshold`.
+
+Finally, a maximum of `max_variants` is retained per outcome.
+
+## What files are Generated
+
+The Generated input files, prefixed by `output_prefix`, are:
+
+- A dataset: Combines `pcs_file`, `traits_file` and called genotypes from `bgen_prefix` at `call_threshold`.
+- Validated estimands: Estimands from `estimands_prefix` are validated. We makes sure the estimands match 
+the data in the dataset and pass the `positivity_constraint`. They are then written in batches of size `batchsize`.
+- Conditional Densities: To be learnt to simulate new data for the estimands of interest.
+"""
+function simulation_inputs_from_gene_atlas(
+    estimands_prefix, 
+    bgen_prefix, 
+    traits_file, 
+    pcs_file;
+    gene_atlas_dir="gene_atlas_data",
+    remove_ga_data=true,
+    trait_table_path=joinpath("assets", "Traits_Table_GeneATLAS.csv"),
+    maf_threshold=0.01,
+    pvalue_threshold=1e-5,
+    distance_threshold=1e6,
+    max_variants=100,
+    output_prefix="ga_sim_input",
+    batchsize=10,
+    positivity_constraint=0,
+    call_threshold=0.9,
+    verbosity=0,
+    )
+    estimands = reduce(
+        vcat, 
+        TargetedEstimation.read_estimands_config(f).estimands for f ∈ files_matching_prefix(estimands_prefix)
+    )
+    # Trait to variants from geneATLAS
+    trait_to_variants = get_trait_to_variants(estimands; 
+        verbosity=verbosity, 
+        gene_atlas_dir=gene_atlas_dir,
+        remove_ga_data=remove_ga_data,
+        trait_table_path=trait_table_path,
+        maf_threshold=maf_threshold,
+        pvalue_threshold=pvalue_threshold,
+        distance_threshold=distance_threshold,
+        max_variants=max_variants,
+        )
+    # Dataset and validated estimands
+    dataset, estimands = get_dataset_and_validated_estimands(
+        estimands,
+        bgen_prefix,
+        traits_file,
+        pcs_file,
+        trait_to_variants;
+        call_threshold=call_threshold,
+        positivity_constraint=positivity_constraint,
+        verbosity=verbosity
+    )
+    # Write outputs
+    write_ga_simulation_inputs(
+        output_prefix,
+        dataset,
+        estimands,
+        trait_to_variants;
+        batchsize=batchsize,
+        verbosity=verbosity
+        )
+    verbosity > 0 && @info("Done.")
     return 0
 end

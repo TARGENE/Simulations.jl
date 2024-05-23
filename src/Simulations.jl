@@ -22,6 +22,7 @@ using Serialization
 using Makie
 using CSV
 using CairoMakie
+using TargeneCore
 
 include("utils.jl")
 
@@ -34,7 +35,6 @@ include(joinpath("samplers", "density_estimate_sampler.jl"))
 
 include(joinpath("inputs_from_gene_atlas.jl"))
 include("estimation.jl")
-include("analysis.jl")
 include("cli.jl")
 
 export NullSampler, DensityEstimateSampler

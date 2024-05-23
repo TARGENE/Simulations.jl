@@ -18,5 +18,4 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
 
     # Integration Tests
     @test include(joinpath(TESTDIR, "null_simulation.jl"))
-    @test include(joinpath(TESTDIR, "gene_atlas_simulation.jl"))
 end

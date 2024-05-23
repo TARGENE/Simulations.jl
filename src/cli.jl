@@ -10,10 +10,6 @@ function cli_settings()
             action = :command
             help = "Aggregate multiple results file created by estimation procedures."
 
-        "density-estimation-inputs"
-            action = :command
-            help = "Generates density estimation inputs."
-
         "density-estimation"
             action = :command
             help = "Estimate a conditional density."
@@ -120,25 +116,6 @@ function cli_settings()
             default = mktempdir()
     end
 
-    @add_arg_table! s["density-estimation-inputs"] begin
-        "dataset"
-            arg_type = String
-            help = "Path to the dataset (either .csv or .arrow)"
-
-        "estimands-prefix"
-            arg_type = String
-            help = "A prefix to serialized TMLE.Configuration (accepted formats: .json | .yaml | .jls)"
-
-        "--output-prefix"
-            arg_type = String
-            default = "de_inputs"
-            help = "Output JSON file."
-        "--batchsize"
-            arg_type = Int
-            default = 10
-            help = "Estimands are batched to optimize speed by //"
-    end
-
     @add_arg_table! s["density-estimation"] begin
         "dataset"
             arg_type = String
@@ -175,6 +152,18 @@ function cli_settings()
             arg_type = String
             help = "A prefix to serialized TMLE.Configuration (accepted formats: .json | .yaml | .jls)"
 
+        "bgen-prefix"
+            arg_type = String
+            help = "A prefix to imputed genotypes (BGEN format)"
+        
+        "traits"
+            arg_type = String
+            help = "The dataset containing phenotypes."
+        
+        "pcs"
+            arg_type = String
+            help = "The dataset of principal components."
+
         "--ga-download-dir"
             arg_type = String
             default = "gene_atlas_data"
@@ -209,6 +198,21 @@ function cli_settings()
             arg_type = Int
             default = 100
             help = "Maximum variants retrieved per trait."
+        
+        "--positivity-constraint"
+            arg_type = Float64
+            default = 0.0
+            help = "Minimum frequency of a treatment."
+
+        "--call-threshold"
+            arg_type = Float64
+            default = 0.9
+            help = "If no genotype as at least this probability it is considered missing."
+
+        "--verbosity"
+            arg_type = Int
+            default = 0
+            help = "Verbosity level."
 
         "--output-prefix"
             arg_type = String
@@ -248,13 +252,19 @@ function julia_main()::Cint
         save_aggregated_df_results(cmd_settings["input-prefix"], cmd_settings["out"])
     elseif cmd == "simulation-inputs-from-ga"
         simulation_inputs_from_gene_atlas(
-            cmd_settings["estimands-prefix"];
+            cmd_settings["estimands-prefix"],
+            cmd_settings["bgen-prefix"],
+            cmd_settings["traits"],
+            cmd_settings["pcs"];
             gene_atlas_dir=cmd_settings["ga-download-dir"],
             remove_ga_data=cmd_settings["remove-ga-data"], 
             trait_table_path=cmd_settings["ga-trait-table"],
             maf_threshold=cmd_settings["maf-threshold"],
             pvalue_threshold=cmd_settings["pvalue-threshold"],
             distance_threshold=cmd_settings["distance-threshold"],
+            positivity_constraint=cmd_settings["positivity-constraint"],
+            call_threshold=cmd_settings["call-threshold"],
+            verbosity=cmd_settings["verbosity"],
             output_prefix=cmd_settings["output-prefix"],
             batchsize=cmd_settings["batchsize"],
             max_variants=cmd_settings["max-variants"]
