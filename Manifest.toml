@@ -2,7 +2,7 @@
 
 julia_version = "1.10.3"
 manifest_format = "2.0"
-project_hash = "feae80fe3d303ac9acfa17e96927377d01f54a3a"
+project_hash = "613512c1dbd261c93f3cc8f41ab195777e878cb0"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -2408,7 +2408,9 @@ version = "1.10.0"
 
 [[deps.TargeneCore]]
 deps = ["ArgParse", "Arrow", "BGEN", "CSV", "CairoMakie", "CategoricalArrays", "Combinatorics", "DataFrames", "Distributions", "HTTP", "JLD2", "JSON", "Mmap", "PackageCompiler", "Random", "Serialization", "SnpArrays", "StableRNGs", "Statistics", "TMLE", "TargetedEstimation", "YAML"]
-path = "../TARGENE/TargeneCore.jl"
+git-tree-sha1 = "fac5b211886df2fbb0e40187334434146b826336"
+repo-rev = "41c78b60de7ca2cbd27de4b24be2ebac5a599b14"
+repo-url = "https://github.com/TARGENE/TargeneCore.jl"
 uuid = "3aa9512e-41c2-4133-bfaa-ba71048dd391"
 version = "0.7.0"
 
