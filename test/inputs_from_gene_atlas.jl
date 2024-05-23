@@ -145,7 +145,7 @@ end
         verbosity=0, 
         gene_atlas_dir=joinpath(tmpdir, "gene_atlas_data"),
         remove_ga_data=true,
-        trait_table_path=joinpath("assets", "Traits_Table_GeneATLAS.csv"),
+        trait_table_path=joinpath(PKGDIR, "assets", "Traits_Table_GeneATLAS.csv"),
         maf_threshold=0.01,
         pvalue_threshold=1e-5,
         distance_threshold=1e6,
