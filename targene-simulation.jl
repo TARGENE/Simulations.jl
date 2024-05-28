@@ -1,1 +1,1 @@
-using PopGenEstimatorComparison; PopGenEstimatorComparison.julia_main()
+using Simulations; Simulations.julia_main()

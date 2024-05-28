@@ -1,5 +1,5 @@
 function cli_settings()
-    s = ArgParseSettings(description="PopGenSim CLI.")
+    s = ArgParseSettings(description="Simulations CLI.")
 
     @add_arg_table! s begin
         "estimation"
