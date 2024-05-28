@@ -91,10 +91,11 @@ end
 
 @testset "Test get_trait_to_variants_from_estimands" begin
     estimands = linear_interaction_dataset_ATEs().estimands
+    push!(estimands, ATE(outcome=:Ycont, treatment_values=(T₃=(case=1, control=0),), treatment_confounders=(:W,)))
     # Empty regex
     trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; regex=r"")
     @test trait_to_variants == Dict(
-        "Ycont"  => Set(["T₁"]),
+        "Ycont"  => Set(["T₁", "T₃"]),
         "Ybin"   => Set(["T₁", "T₂"]),
         "Ycount" => Set(["T₁"])
         )

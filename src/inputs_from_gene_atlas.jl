@@ -41,12 +41,12 @@ end
 function get_trait_to_variants_from_estimands(estimands; regex=r"^rs[0-9]*")
     trait_to_variants = Dict()
     for Ψ in estimands
-        outcome = get_outcome(Ψ)
+        outcome = string(get_outcome(Ψ))
         variants = filter(x -> occursin(regex, x), string.(get_treatments(Ψ)))
-        if haskey(trait_to_variants, outcome) && !isempty(variants)
+        if haskey(trait_to_variants, outcome)
             union!(trait_to_variants[outcome], variants)
         else
-            trait_to_variants[string(outcome)] = Set(variants)
+            trait_to_variants[outcome] = Set(variants)
         end
     end
     return trait_to_variants
