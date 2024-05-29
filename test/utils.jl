@@ -128,6 +128,25 @@ end
     @test X_val isa NamedTuple
 end
 
+@testset "Test sample_from" begin
+    origin_dataset = DataFrame(
+        A = ["AC", "CC", missing, "AA", "AA", "CC", "AC"],
+        B = ["AA", "AC", "CC", "AA", "AA", "AC", "AC"],
+        C = ["AA", "AC", "CC", "CC", "AA", "AC", "AC"],
+        D = 1:7
+    )
+    @test_throws AssertionError("Filtering of missing values resulted in the loss of categorical data levels.") sample_from(origin_dataset, [:A, :B]; n=2)
+
+    variables = [:A, :C, :D]
+    sampled_dataset = sample_from(origin_dataset, variables; n=4)
+    all_rows = collect(eachrow(origin_dataset[!, variables]))
+    for row in eachrow(sampled_dataset)
+        @test row ∈ all_rows
+    end
+    @test length(unique(sampled_dataset.A)) == 3
+    @test length(unique(sampled_dataset.C)) == 3
+end
+
 end
 
 true

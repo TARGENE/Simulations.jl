@@ -59,9 +59,28 @@ propensity_score_inputs(variables) = collect(variables.confounders)
 outcome_model_inputs(variables) = vcat(collect(variables.treatments), collect(variables.confounders), collect(variables.outcome_extra_covariates))
 confounders_and_covariates(variables) = vcat(collect(variables.confounders), collect(variables.outcome_extra_covariates))
 
-function sample_from(dataset::DataFrame, variables; n=100)
-    sample_rows = StatsBase.sample(1:nrow(dataset), n, replace=true)
-    return dataset[sample_rows, collect(variables)]
+function all_levels_present(sampled_dataset, origin_dataset, factor_variables)
+    for var in factor_variables
+        if Set(skipmissing(sampled_dataset[!, var])) != Set(skipmissing(origin_dataset[!, var]))
+            return false
+        end
+    end
+    return true
+end
+
+function sample_from(origin_dataset::DataFrame, variables; n=100)
+    variables = collect(variables)
+    nomissing = dropmissing(origin_dataset[!, variables])
+    factor_variables = [var for var in variables if eltype(nomissing[!, var]) <: AbstractString]
+    @assert all_levels_present(nomissing, origin_dataset, factor_variables) "Filtering of missing values resulted in the loss of categorical data levels."
+    # Resample until all variables' levels are present at least once.
+    while true
+        sample_rows = StatsBase.sample(1:nrow(nomissing), n, replace=true)
+        sampled_dataset = nomissing[sample_rows, variables]
+        if all_levels_present(sampled_dataset, nomissing, factor_variables)
+            return sampled_dataset
+        end
+    end
 end
 
 variables_from_args(outcome, treatments, confounders, outcome_extra_covariates) = (
