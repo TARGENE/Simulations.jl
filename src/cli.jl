@@ -206,7 +206,7 @@ function cli_settings()
 
         "--call-threshold"
             arg_type = Float64
-            default = 0.9
+            default = nothing
             help = "If no genotype as at least this probability it is considered missing."
 
         "--verbosity"
