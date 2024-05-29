@@ -46,6 +46,7 @@ function sample_from(sampler::DensityEstimateSampler, origin_dataset; n=100)
     sampled_dataset = sample_from(origin_dataset, sampler.all_parents_set; n=n)
 
     for (outcome, (parents, file)) in sampler.density_mapping
+        coerce_parents_and_outcome!(sampled_dataset, parents; outcome=nothing)
         conditional_density_estimate = Simulations.sieve_neural_net_density_estimator(file)
         sampled_dataset[!, outcome] = sample_from(
             conditional_density_estimate, 
