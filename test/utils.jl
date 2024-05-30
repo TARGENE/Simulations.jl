@@ -147,6 +147,43 @@ end
     @test length(unique(sampled_dataset.C)) == 3
 end
 
+@testset "Test" begin
+    testdataset() = DataFrame(
+        A = [0, 1, 0, missing, 0, 1, 1, 0],
+        B = [0, 1, 2, missing, 1, 2, 0, 1],
+        C = ["AC", "CC", missing, "AA", "AA", "CC", "AC", "AC"],
+        D = [0., 1.1, 2.3, missing, 3.2, 0.1, -3.4, -2.2]
+    )
+    # Binary outcome
+    dataset = testdataset()
+    Simulations.coerce_parents_and_outcome!(dataset, [:B, :C, :D]; outcome=:A)
+    @test dataset.A isa CategoricalVector
+    @test dataset.B isa CategoricalVector
+    @test dataset.C isa CategoricalVector
+    @test eltype(dataset.D) == Union{Missing, Float64}
+    # Count outcome: treated as float
+    dataset = testdataset()
+    Simulations.coerce_parents_and_outcome!(dataset, [:A, :C, :D]; outcome=:B)
+    @test dataset.A isa CategoricalVector
+    @test eltype(dataset.B) == Union{Missing, Float64}
+    @test dataset.C isa CategoricalVector
+    @test eltype(dataset.D) == Union{Missing, Float64}
+    # String outcome
+    dataset = testdataset()
+    Simulations.coerce_parents_and_outcome!(dataset, [:B, :A, :D]; outcome=:C)
+    @test dataset.A isa CategoricalVector
+    @test dataset.B isa CategoricalVector
+    @test dataset.C isa CategoricalVector
+    @test eltype(dataset.D) == Union{Missing, Float64}
+    # Continuous outcome
+    dataset = testdataset()
+    Simulations.coerce_parents_and_outcome!(dataset, [:B, :C, :A]; outcome=:D)
+    @test dataset.A isa CategoricalVector
+    @test dataset.B isa CategoricalVector
+    @test dataset.C isa CategoricalVector
+    @test eltype(dataset.D) == Union{Missing, Float64}
+end
+
 end
 
 true

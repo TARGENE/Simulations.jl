@@ -6,7 +6,7 @@ function coerce_parents_and_outcome!(dataset, parents; outcome=nothing)
     TargetedEstimation.coerce_types!(dataset, parents)
     if outcome !== nothing
         # Continuous and Counts except Binary outcomes are treated as continuous
-        if elscitype(dataset[!, outcome]) <: Infinite && !(TargetedEstimation.isbinary(outcome, dataset))
+        if elscitype(dataset[!, outcome]) <: Union{Infinite, Missing} && !(TargetedEstimation.isbinary(outcome, dataset))
             TargetedEstimation.coerce_types!(dataset, [outcome], rules=:discrete_to_continuous)
         else
             TargetedEstimation.coerce_types!(dataset, [outcome], rules=:few_to_finite)
