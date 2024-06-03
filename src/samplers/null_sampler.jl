@@ -29,12 +29,27 @@ function NullSampler(outcome, treatments;
     return NullSampler(variables)
 end
 
-function sample_from(sampler::NullSampler, origin_dataset; n=100)
-    nrows = nrow(origin_dataset)
-    sampled_dataset = sample_from(origin_dataset, collect(sampler.confounders_and_covariates); n=n)
+function sample_from(sampler::NullSampler, origin_dataset; 
+    n=100,
+    min_occurences=10,
+    max_attempts=1000,
+    verbosity=1
+    )
+    sampled_dataset = sample_from(origin_dataset, collect(sampler.confounders_and_covariates); 
+        n=n,
+        min_occurences=min_occurences,
+        max_attempts=max_attempts,
+        verbosity=verbosity
+    )
+    # Independently sample the rest of variables
     for variable in sampler.other_variables
-        sample_mask = rand(1:nrows, n)
-        sampled_dataset[!, variable] = origin_dataset[sample_mask, variable]
+        sampled_variable_df = sample_from(origin_dataset, [variable]; 
+            n=n,
+            min_occurences=min_occurences,
+            max_attempts=max_attempts,
+            verbosity=verbosity
+        )
+        sampled_dataset[!, variable] = sampled_variable_df[!, variable]
     end
     return sampled_dataset
 end

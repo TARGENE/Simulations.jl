@@ -59,28 +59,71 @@ propensity_score_inputs(variables) = collect(variables.confounders)
 outcome_model_inputs(variables) = vcat(collect(variables.treatments), collect(variables.confounders), collect(variables.outcome_extra_covariates))
 confounders_and_covariates(variables) = vcat(collect(variables.confounders), collect(variables.outcome_extra_covariates))
 
-function all_levels_present(sampled_dataset, origin_dataset, factor_variables)
+countuniques(dataset, colname) = DataFrames.combine(groupby(dataset, colname, skipmissing=true), nrow)
+
+function dataset_is_too_extreme(sampled_dataset, origin_dataset, factor_variables; min_occurences=10)
     for var in factor_variables
-        if Set(skipmissing(sampled_dataset[!, var])) != Set(skipmissing(origin_dataset[!, var]))
-            return false
+        # Check all levels are present in the smapled dataset
+        sampled_levels = Set(skipmissing(sampled_dataset[!, var]))
+        origin_levels = Set(skipmissing(origin_dataset[!, var]))
+        if sampled_levels != origin_levels
+            return true, string("Missing levels for variable: ", var)
+        end
+        # Check all levels occur at least `min_occurences` of times
+        n_uniques = countuniques(sampled_dataset, var)
+        if minimum(n_uniques.nrow) < min_occurences
+            return true, string("Not enough occurences for variable: ", var)
         end
     end
-    return true
+    return false, ""
 end
 
-function sample_from(origin_dataset::DataFrame, variables; n=100)
+isfactor(col; nlevels=5) = length(levels(col; skipmissing=true)) < nlevels
+
+"""
+    sample_from(origin_dataset::DataFrame, variables; 
+        n=100, 
+        min_occurences=10,
+        max_attempts=1000,
+        verbosity = 1
+    )
+
+This method jointly samples with replacement n samples of `variables` from `origin_dataset` after dropping missing values.
+It ensures that each level of each sampled factor variable is present at least `min_occurences` of times. 
+Otherwise a new sampling attempt is made and up to `max_attempts`.
+"""
+function sample_from(origin_dataset::DataFrame, variables; 
+    n=100, 
+    min_occurences=10,
+    max_attempts=1000,
+    verbosity = 1
+    )
     variables = collect(variables)
     nomissing = dropmissing(origin_dataset[!, variables])
-    factor_variables = [var for var in variables if eltype(nomissing[!, var]) <: AbstractString]
-    @assert all_levels_present(nomissing, origin_dataset, factor_variables) "Filtering of missing values resulted in the loss of categorical data levels."
-    # Resample until all variables' levels are present at least once.
-    while true
+    factor_variables = [var for var in variables if isfactor(nomissing[!, var])]
+    too_extreme, msg = Simulations.dataset_is_too_extreme(nomissing, origin_dataset, factor_variables; min_occurences=min_occurences)
+    if too_extreme
+        msg = string(
+            "Filtering of missing values resulted in a too extreme dataset. In particular: ", msg, 
+            ".\n Consider lowering or setting the `call_threshold` to `nothing`."
+        )
+        throw(ErrorException(msg))
+    end
+    # Resample until the dataset is not too extreme
+    for attempt in 1:max_attempts
         sample_rows = StatsBase.sample(1:nrow(nomissing), n, replace=true)
         sampled_dataset = nomissing[sample_rows, variables]
-        if all_levels_present(sampled_dataset, nomissing, factor_variables)
+        too_extreme, msg = dataset_is_too_extreme(sampled_dataset, nomissing, factor_variables; min_occurences=min_occurences)
+        if !too_extreme
             return sampled_dataset
         end
+        verbosity > 0 && @info(string("Sampled dataset after attempt ", attempt, " was too extreme. In particular: ", msg, ".\n Retrying."))
     end
+    msg = string(
+        "Could not sample a dataset which wasn't too extreme after: ", max_attempts, 
+        " attempts. Possible solutions: increase `sample_size`, change your simulation estimands of increase `max_attempts`."
+    )
+    throw(ErrorException(msg))
 end
 
 variables_from_args(outcome, treatments, confounders, outcome_extra_covariates) = (

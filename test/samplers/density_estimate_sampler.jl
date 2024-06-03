@@ -50,7 +50,7 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
     @test sampler.density_mapping == Dict(:Ybin => ([:C, :T₁, :W], joinpath(density_dir, "density_Ybin.hdf5")))
     # Sample
     origin_dataset = DataFrame(Arrow.Table(dataset_file))
-    sampled_dataset = sample_from(sampler, origin_dataset, n=50)
+    sampled_dataset = sample_from(sampler, origin_dataset, n=50, verbosity=0)
     ## Check parents are given by the empirical
     parents = [:W, :T₁]
     all_origin_rows = collect(eachrow(origin_dataset[!, parents]))
@@ -60,6 +60,12 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
     @test names(sampled_dataset) == string.(sampler.variables_required_for_estimation)
     @test size(sampled_dataset, 1) == 50
     @test sampled_dataset.Ybin isa CategoricalVector
+    ## Failing sampling
+    msg = string(
+        "Filtering of missing values resulted in a too extreme dataset. In particular: Not enough occurences for variable: ",
+        "T₁.\n Consider lowering or setting the `call_threshold` to `nothing`."
+    )
+    @test_throws ErrorException(msg) sample_from(sampler, origin_dataset, n=50, min_occurences=50, max_attempts=10, verbosity=0)
 
     # Scenario 2:
     # Two estimands
@@ -85,7 +91,7 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
         )
     # Sample
     origin_dataset = DataFrame(Arrow.Table(dataset_file))
-    sampled_dataset = sample_from(sampler, origin_dataset, n=50)
+    sampled_dataset = sample_from(sampler, origin_dataset, n=50, verbosity=0)
     ## All parents are retained
     all_origin_rows = collect(eachrow(origin_dataset[!, sampler.all_parents_set]))
     for row in eachrow(sampled_dataset[!, sampler.all_parents_set])

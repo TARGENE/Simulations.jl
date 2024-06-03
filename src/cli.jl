@@ -90,6 +90,16 @@ function cli_settings()
             help = "Number of simulations to run."
             default = 10
 
+        "--max-sampling-attempts"
+            arg_type = Int
+            help = "Maximum number of dataset sampling attempts."
+            default = 1000
+
+        "--min-occurences"
+            arg_type = Int
+            help = "Minimum number of occurence of any factor levels."
+            default = 10
+
         "--out"
             arg_type = String
             default = "permutation_estimation_results.hdf5"
@@ -243,6 +253,8 @@ function julia_main()::Cint
             sampler_config=cmd_settings["density-estimates-prefix"],
             nrepeats=cmd_settings["n-repeats"],
             out=cmd_settings["out"],
+            max_sampling_attempts=cmd_settings["max-sampling-attempts"],
+            min_occurences=cmd_settings["min-occurences"],
             verbosity=cmd_settings["verbosity"],
             rng_seed=cmd_settings["rng"], 
             chunksize=cmd_settings["chunksize"],

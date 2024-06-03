@@ -36,6 +36,12 @@ include(joinpath(TESTDIR, "testutils.jl"))
         p_origin_T = sort(combine(groupby(origin_dataset, T), proprow), :proprow)
         @test p_sampled_T[!, T] == p_origin_T[!, T]
     end
+    # Raise if min_occurences not statisfied
+    msg = string(
+        "Could not sample a dataset which wasn't too extreme after: 1 attempts. Possible solutions: increase `sample_size`, change your simulation estimands of increase `max_attempts`."
+    )
+    @test_throws ErrorException(msg) sample_from(sampler, origin_dataset, n=10, min_occurences = 10, max_attempts=1, verbosity=0)
+
     # Raises if non compatible estimand is provided
     push!(
         estimands, 

@@ -135,10 +135,21 @@ end
         C = ["AA", "AC", "CC", "CC", "AA", "AC", "AC"],
         D = 1:7
     )
-    @test_throws AssertionError("Filtering of missing values resulted in the loss of categorical data levels.") sample_from(origin_dataset, [:A, :B]; n=2)
-
+    # Dropping missing results in CC not present in the dataset
+    error_msg = string(
+        "Filtering of missing values resulted in a too extreme dataset. In particular: Missing levels for variable: B.", 
+        "\n Consider lowering or setting the `call_threshold` to `nothing`."
+    )
+    @test_throws ErrorException(error_msg) sample_from(origin_dataset, [:A, :B]; n=2, min_occurences=0, verbosity=0)
+    # if min_occurences = 10, A won't have enough occurences and will raise first
+    error_msg = string(
+        "Filtering of missing values resulted in a too extreme dataset. In particular: Not enough occurences for variable: A.", 
+        "\n Consider lowering or setting the `call_threshold` to `nothing`."
+    )
+    @test_throws ErrorException(error_msg) sample_from(origin_dataset, [:A, :B]; n=2, min_occurences=10, verbosity=0)
+    # This will work
     variables = [:A, :C, :D]
-    sampled_dataset = sample_from(origin_dataset, variables; n=4)
+    sampled_dataset = sample_from(origin_dataset, variables; n=4, min_occurences=0, verbosity=0)
     all_rows = collect(eachrow(origin_dataset[!, variables]))
     for row in eachrow(sampled_dataset)
         @test row ∈ all_rows
@@ -147,7 +158,7 @@ end
     @test length(unique(sampled_dataset.C)) == 3
 end
 
-@testset "Test" begin
+@testset "Test coerce_parents_and_outcome!" begin
     testdataset() = DataFrame(
         A = [0, 1, 0, missing, 0, 1, 1, 0],
         B = [0, 1, 2, missing, 1, 2, 0, 1],

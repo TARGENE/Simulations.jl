@@ -8,6 +8,8 @@ function estimate_from_simulated_data(
     estimands_config, 
     estimators_config;
     sample_size=nothing,
+    max_sampling_attempts=1000,
+    min_occurences=10,
     sampler_config=nothing,
     nrepeats=10,
     out="output.arrow",
@@ -25,15 +27,21 @@ function estimate_from_simulated_data(
     sampler = get_sampler(sampler_config, estimands)
     statistics = []
     for repeat_id in 1:nrepeats
+        verbosity > 0 && @info(string("Estimation for bootstrap: ", repeat_id))
         outfilename = repeat_filename(workdir, repeat_id)
         outputs = TargetedEstimation.Outputs(hdf5=TargetedEstimation.HDF5Output(filename=outfilename))
-        sampled_dataset = sample_from(sampler, origin_dataset; n=sample_size)
+        sampled_dataset = sample_from(sampler, origin_dataset; 
+            n=sample_size,
+            max_attempts=max_sampling_attempts,
+            min_occurences=min_occurences,
+            verbosity=verbosity-1
+        )
         push!(statistics, compute_statistics(sampled_dataset, estimands))
         runner = Runner(
             sampled_dataset;
             estimands_config=estimands_config, 
             estimators_spec=estimators_spec, 
-            verbosity=verbosity, 
+            verbosity=verbosity-1, 
             outputs=outputs, 
             chunksize=chunksize,
             cache_strategy="release-unusable",
