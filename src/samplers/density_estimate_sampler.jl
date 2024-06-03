@@ -5,6 +5,7 @@ struct DensityEstimateSampler
     density_mapping::Dict
     all_parents_set::Vector{Symbol}
     variables_required_for_estimation::Vector{Symbol}
+    treatments::Vector{Symbol}
 end
 
 get_outcomes_set(estimands) = Set(get_outcome(Ψ) for Ψ in estimands)
@@ -25,12 +26,15 @@ function DensityEstimateSampler(prefix, estimands)
         end
     end
     variables_required_for_estimation = Set{Symbol}()
+    treatments = Set{Symbol}()
     for Ψ ∈ estimands
+        estimands_treatments = all_treatments(Ψ)
         pre_outcome_variables = union(
             all_outcome_extra_covariates(Ψ),
-            all_treatments(Ψ),
+            estimands_treatments,
             all_confounders(Ψ),
         )
+        union!(treatments, estimands_treatments)
         union!(
             variables_required_for_estimation,
             pre_outcome_variables
@@ -38,7 +42,7 @@ function DensityEstimateSampler(prefix, estimands)
         push!(variables_required_for_estimation, get_outcome(Ψ))
     end
 
-    return DensityEstimateSampler(density_mapping, collect(all_parents_set), collect(variables_required_for_estimation))
+    return DensityEstimateSampler(density_mapping, collect(all_parents_set), collect(variables_required_for_estimation), collect(treatments))
 end
 
 function safe_sample_from(conditional_density_estimate, sampled_dataset, parents;
@@ -80,6 +84,7 @@ function sample_from(sampler::DensityEstimateSampler, origin_dataset;
     sampled_dataset = sample_from(origin_dataset, sampler.all_parents_set; 
         n=n, 
         min_occurences=min_occurences,
+        variables_to_check=sampler.treatments,
         max_attempts=max_attempts,
         verbosity=verbosity
     )

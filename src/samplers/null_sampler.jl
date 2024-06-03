@@ -42,9 +42,11 @@ function sample_from(sampler::NullSampler, origin_dataset;
         verbosity=verbosity
     )
     # Independently sample the rest of variables
+    variables_to_check = [var for var in sampler.other_variables if isfactor(origin_dataset[!, var])]
     for variable in sampler.other_variables
         sampled_variable_df = sample_from(origin_dataset, [variable]; 
             n=n,
+            variables_to_check=variables_to_check,
             min_occurences=min_occurences,
             max_attempts=max_attempts,
             verbosity=verbosity

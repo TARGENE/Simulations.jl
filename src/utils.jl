@@ -61,8 +61,8 @@ confounders_and_covariates(variables) = vcat(collect(variables.confounders), col
 
 countuniques(dataset, colname) = DataFrames.combine(groupby(dataset, colname, skipmissing=true), nrow)
 
-function dataset_is_too_extreme(sampled_dataset, origin_dataset, factor_variables; min_occurences=10)
-    for var in factor_variables
+function dataset_is_too_extreme(sampled_dataset, origin_dataset, variables_to_check; min_occurences=10)
+    for var in variables_to_check
         # Check all levels are present in the smapled dataset
         sampled_levels = Set(skipmissing(sampled_dataset[!, var]))
         origin_levels = Set(skipmissing(origin_dataset[!, var]))
@@ -93,15 +93,16 @@ It ensures that each level of each sampled factor variable is present at least `
 Otherwise a new sampling attempt is made and up to `max_attempts`.
 """
 function sample_from(origin_dataset::DataFrame, variables; 
-    n=100, 
+    n=100,
+    variables_to_check=[],
     min_occurences=10,
     max_attempts=1000,
     verbosity = 1
     )
     variables = collect(variables)
+    variables_to_check = intersect(variables, variables_to_check)
     nomissing = dropmissing(origin_dataset[!, variables])
-    factor_variables = [var for var in variables if isfactor(nomissing[!, var])]
-    too_extreme, msg = Simulations.dataset_is_too_extreme(nomissing, origin_dataset, factor_variables; min_occurences=min_occurences)
+    too_extreme, msg = Simulations.dataset_is_too_extreme(nomissing, origin_dataset, variables_to_check; min_occurences=min_occurences)
     if too_extreme
         msg = string(
             "Filtering of missing values resulted in a too extreme dataset. In particular: ", msg, 
@@ -113,7 +114,7 @@ function sample_from(origin_dataset::DataFrame, variables;
     for attempt in 1:max_attempts
         sample_rows = StatsBase.sample(1:nrow(nomissing), n, replace=true)
         sampled_dataset = nomissing[sample_rows, variables]
-        too_extreme, msg = dataset_is_too_extreme(sampled_dataset, nomissing, factor_variables; min_occurences=min_occurences)
+        too_extreme, msg = dataset_is_too_extreme(sampled_dataset, nomissing, variables_to_check; min_occurences=min_occurences)
         if !too_extreme
             return sampled_dataset
         end
