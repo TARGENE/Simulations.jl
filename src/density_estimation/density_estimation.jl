@@ -11,6 +11,8 @@ function study_density_estimators(X, y)
     snne = SieveNeuralNetworkEstimator(X, y; 
         hidden_sizes_candidates=[(5,), (10,), (20,), (40,), (60,), (80,), (100,), (120,), (140,)], 
         max_epochs=10_000,
+        optimiser=Adam(1e-4),
+        resampling=StratifiedCV(nfolds=train_ratio),
         sieve_patience=5,
         batchsize=64,
         patience=5

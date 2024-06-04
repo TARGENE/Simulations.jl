@@ -182,14 +182,14 @@ compute_statistics(dataset, estimands) =
 ########################################################################
 
 function stratified_holdout_train_val_samples(X, y;
-    resampling=JointStratifiedCV(patterns=[r"^rs[0-9]+"], resampling=StratifiedCV(nfolds=10))
+    resampling=StratifiedCV(nfolds=10)
     )
     first(MLJBase.train_test_pairs(resampling, 1:length(y), X, y))
 end
 
 function train_validation_split(X, y; 
     train_ratio=10, 
-    resampling=JointStratifiedCV(patterns=[r"^rs[0-9]+"], resampling=StratifiedCV(nfolds=train_ratio))
+    resampling=StratifiedCV(nfolds=train_ratio)
     )
     # Get Train/Validation Splits
     train_samples, val_samples = stratified_holdout_train_val_samples(X, y; resampling=resampling)
