@@ -88,9 +88,8 @@ function sample_from(sampler::DensityEstimateSampler, origin_dataset;
         max_attempts=max_attempts,
         verbosity=verbosity
     )
-
+    coerce_parents_and_outcome!(sampled_dataset, sampler.all_parents_set; outcome=nothing)
     for (outcome, (parents, file)) in sampler.density_mapping
-        coerce_parents_and_outcome!(sampled_dataset, parents; outcome=nothing)
         conditional_density_estimate = Simulations.sieve_neural_net_density_estimator(file)
         sampled_dataset[!, outcome] = safe_sample_from(conditional_density_estimate, sampled_dataset, parents;
             min_occurences=min_occurences,
