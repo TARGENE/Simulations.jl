@@ -5,16 +5,26 @@
 Creates a sequence of hidden layers.
 Note: The last hidden layer has no activation function
 """
-function hidden_layers(;input_size=1, hidden_sizes=(32,), activation=relu)
-    length(hidden_sizes) == 1 && return Dense(input_size, hidden_sizes[1])
-    last = Dense(hidden_sizes[end-1], hidden_sizes[end])
-    ins = vcat(input_size, hidden_sizes[1:end-2]...)
-    outs = collect(hidden_sizes[1:end-1])
-    return Chain((Chain(Dense(in, out, activation), Dropout(0.2)) for (in, out) in zip(ins, outs))..., last)
+function hidden_layers(;input_size=1, hidden_sizes=(32,), activation=tanh, dropout_level=0.)
+    size_chain = (input_size, hidden_sizes...)
+    layers = []
+    for index in 1:(length(size_chain)-1)
+        push!(layers, Dense(size_chain[index], size_chain[index+1], activation))
+        push!(layers, Dropout(dropout_level))
+    end
+    return layers
 end
 
-CategoricalMLP(;input_size=1, hidden_sizes=(32, 2)) =
-    hidden_layers(input_size=input_size, hidden_sizes=hidden_sizes)
+CategoricalMLP(;input_size=1, hidden_sizes=(32, 2), output_size=2, activation=tanh, dropout_level=0.) =
+    Chain(
+        hidden_layers(
+            input_size=input_size, 
+            hidden_sizes=hidden_sizes, 
+            activation=activation, 
+            dropout_level=dropout_level
+        )..., 
+        Dense(hidden_sizes[end], output_size)
+    )
 
 compute_loss(model, x, y::OneHotMatrix) = Flux.logitcrossentropy(model(x), y)
 
@@ -46,9 +56,14 @@ struct MixtureDensityNetwork
     μ_xk::Chain
 end
 
-function MixtureDensityNetwork(;input_size=1, hidden_sizes=(20,), K=3)
+function MixtureDensityNetwork(;input_size=1, hidden_sizes=(20,), K=3, activation=tanh, dropout_level=0.)
     last_hidden_size = hidden_sizes[end]
-    z_h = Chain(hidden_layers(input_size=input_size, hidden_sizes=hidden_sizes), x -> tanh.(x))
+    z_h = Chain(hidden_layers(
+        input_size=input_size, 
+        hidden_sizes=hidden_sizes, 
+        activation=activation,
+        dropout_level=dropout_level)...
+    )
     z_k = Dense(last_hidden_size, K)
     z_σ = Dense(last_hidden_size, K, exp)
     z_μ = Dense(last_hidden_size, K)
@@ -197,7 +212,10 @@ mutable struct NeuralNetworkEstimator
         resampling = Holdout(),
         batchsize = 64,
         patience = 5,
-        max_epochs = 10,)
+        max_epochs = 10,
+        activation=tanh, 
+        dropout_level=0.
+        )
         
         encoder = machine(continuous_encoder(), X)
         fit!(encoder, verbosity=0)
@@ -206,16 +224,20 @@ mutable struct NeuralNetworkEstimator
         if y isa CategoricalVector
             labels = levels(y)
             output_size = length(labels)
-            hidden_sizes = tuple(hidden_sizes..., output_size)
             model = CategoricalMLP(
                 input_size=input_size, 
                 hidden_sizes=hidden_sizes,
+                output_size=output_size,
+                activation=activation, 
+                dropout_level=dropout_level
             )
         else
             model = MixtureDensityNetwork(
                 input_size=input_size, 
                 hidden_sizes=hidden_sizes,
-                K=K
+                K=K,
+                activation=activation, 
+                dropout_level=dropout_level
             )
         end
 
@@ -254,7 +276,10 @@ mutable struct SieveNeuralNetworkEstimator
         resampling = Holdout(),
         batchsize = 64,
         patience = 5,
-        max_epochs = 10,)
+        max_epochs = 10,
+        activation=tanh, 
+        dropout_level=0.
+        )
         
         neural_net_estimator = NeuralNetworkEstimator(X, y; 
             hidden_sizes=first(hidden_sizes_candidates),
@@ -264,13 +289,15 @@ mutable struct SieveNeuralNetworkEstimator
             batchsize = batchsize,
             patience = patience,
             max_epochs = max_epochs,
+            activation=activation, 
+            dropout_level=dropout_level
         )
 
         return new(neural_net_estimator, [collect(x) for x in hidden_sizes_candidates], sieve_patience)
     end
 end
 
-infer_input_size(model::Chain) = size(model.layers[1][1].weight, 2)
+infer_input_size(model::Chain) = size(model[1].weight, 2)
 
 infer_input_size(model::MixtureDensityNetwork) = size(model.p_k_x.layers[1][1].weight, 2)
 
@@ -280,7 +307,8 @@ function newmodel(model::Chain, hidden_sizes)
     output_size = size(model[end].weight, 1)
     return CategoricalMLP(
         input_size=infer_input_size(model), 
-        hidden_sizes=tuple(hidden_sizes..., output_size),
+        hidden_sizes=hidden_sizes,
+        output_size=output_size
     )
 end
 

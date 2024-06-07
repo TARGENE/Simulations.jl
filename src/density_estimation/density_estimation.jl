@@ -10,12 +10,13 @@ end
 function study_density_estimators(X, y)
     snne = SieveNeuralNetworkEstimator(X, y; 
         hidden_sizes_candidates=[(5,), (10,), (20,), (40,), (60,), (80,), (100,), (120,), (140,)], 
-        max_epochs=10_000,
+        max_epochs=20_000,
         optimiser=Adam(1e-4),
         resampling=StratifiedCV(nfolds=train_ratio),
-        sieve_patience=5,
+        sieve_patience=10,
         batchsize=64,
-        patience=5
+        dropout_level=0.,
+        patience=10
     )
     glm = GLMEstimator(X, y)
     return (snne=snne, glm=glm)

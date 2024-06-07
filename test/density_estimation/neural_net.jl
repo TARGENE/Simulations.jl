@@ -10,10 +10,31 @@ using DataFrames
 using MLJBase
 using CategoricalArrays
 using TMLE
+using Flux
 
 TESTDIR = joinpath(pkgdir(Simulations), "test")
 
 include(joinpath(TESTDIR, "testutils.jl"))
+
+@testset "Test hidden_layers" begin
+    X = rand(Float32, 3, 10)
+    # One hidden layer
+    layers = Simulations.hidden_layers(input_size=3, hidden_sizes=(5,), activation=relu, dropout_level=0.2)
+    @test length(layers) == 2
+    @test layers[1] isa Dense
+    @test layers[1].σ == relu
+    @test size(layers[1].weight) == (5, 3)
+    @test layers[2] isa Dropout
+    @test layers[2].p == 0.2
+    c = Chain(layers...)
+    @test size(c(X)) == (5, 10)
+
+    # Two hidden layers
+    layers = Simulations.hidden_layers(input_size=3, hidden_sizes=(5, 3), activation=tanh, dropout_level=0.5)
+    @test length(layers) == 4
+    c = Chain(layers...)
+    @test size(c(X)) == (3, 10)
+end
 
 @testset "Test Continuous Outcome MixtureDensityNetwork" begin
     # Seeding
@@ -25,7 +46,11 @@ include(joinpath(TESTDIR, "testutils.jl"))
     X_train, y_train, X_val, y_val = train_validation_split(X, y)
 
     # Training and Evaluation
-    estimator = NeuralNetworkEstimator(X, y, max_epochs=10_000)
+    estimator = NeuralNetworkEstimator(X, y, 
+        hidden_sizes=(20,),
+        patience=10,               
+        activation=tanh, 
+        max_epochs=10_000)
     training_loss_before_train = evaluation_metrics(estimator, X_train, y_train).logloss
     val_loss_before_train = evaluation_metrics(estimator, X_val, y_val).logloss
     estimator, info = train!(estimator, X, y, verbosity=0)
@@ -86,8 +111,12 @@ end
     y = categorical(y, ordered=true)
     X = Float32.(DataFrame(X))
     X_train, y_train, X_val, y_val = train_validation_split(X, y)
-    # Training and Evaluation
+    # Check construction
     estimator = NeuralNetworkEstimator(X, y, max_epochs=10_000)
+    @test length(estimator.model) == 3
+    @test size(estimator.model[end].weight) == (2, 20)
+    # Training and Evaluation
+    
     training_loss_before_train = evaluation_metrics(estimator, X_train, y_train).logloss
     val_loss_before_train = evaluation_metrics(estimator, X_val, y_val).logloss
     train!(estimator, X, y, verbosity=0)
@@ -107,9 +136,9 @@ end
     @test sum(abs.(network_prediction .- float(y)) .> 0.5) == 0
     # misc
     @test Simulations.infer_input_size(estimator.model) == 2
-    @test size(estimator.model[1][1].weight, 1) == 20
+    @test size(estimator.model[1].weight, 1) == 20
     new_model = Simulations.newmodel(estimator.model, (40,))
-    @test size(new_model[1][1].weight, 1) == 40
+    @test size(new_model[1].weight, 1) == 40
 end
 
 @testset "Test SieveNeuralNetworkEstimator CategoricalMLP" begin
@@ -126,8 +155,8 @@ end
         max_epochs=1000
     )
     snne, info = train!(snne, X, y;verbosity=0)
-    # Last model has been selected
-    @test size(snne.neural_net_estimator.model[1][1].weight, 1) == 30
+    # Second model has been selected
+    @test size(snne.neural_net_estimator.model[1].weight, 1) == 20
     # Checking function have been implemented
     @test sample_from(snne, X) isa CategoricalVector
     @test evaluation_metrics(snne, X, y) isa NamedTuple{(:logloss,)}
