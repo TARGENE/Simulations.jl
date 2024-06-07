@@ -60,6 +60,7 @@ end
     @test val_loss_before_train > val_loss_after_train
     # Sampling
     y_sampled = sample_from(estimator, X)
+    @test size(y_sampled, 1) == n_samples
     @test y_sampled isa Vector
     # Expected_value
     oracle_prediction = sinusoid_function(X.x)

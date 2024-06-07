@@ -97,16 +97,15 @@ function compute_loss(model::MixtureDensityNetwork, x, y::Matrix{<:AbstractFloat
     return - mean(logsumexp(exponent(y, μ_xk, σ_xk, p_k_x), dims=1))
 end
 
-function gumbel_sample(x)
-    z = rand(Gumbel(), size(x))
-    return argmax(log.(x) + z, dims=1)
-end
-
 function sample_from(model::MixtureDensityNetwork, X, labels=nothing)
-    k_x = gumbel_sample(model.p_k_x(X))
+    ps = model.p_k_x(X)
+    k_x = [rand(Distributions.Categorical(collect(p))) for p in eachcol(ps)]
     σ_xk = model.σ_xk(X)
+    σ_x = [σ_xk[k_x[index], index] for index in eachindex(k_x)]
+
     μ_xk = model.μ_xk(X)
-    return rand(Normal(), length(k_x)) .* vec(σ_xk[k_x]) .+ vec(μ_xk[k_x])
+    μ_x = [μ_xk[k_x[index], index] for index in eachindex(k_x)]
+    return rand(Normal(), length(k_x)) .* σ_x .+ μ_x
 end
 
 function TMLE.expected_value(model::MixtureDensityNetwork, X, labels)
