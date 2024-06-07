@@ -21,6 +21,7 @@ using JSON
 using Serialization
 using CSV
 using TargeneCore
+using BGEN
 
 include("utils.jl")
 

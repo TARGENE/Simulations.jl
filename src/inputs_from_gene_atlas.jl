@@ -38,7 +38,7 @@ function download_variants_info(outdir)
     end
 end
 
-function get_trait_to_variants_from_estimands(estimands; regex=r"^rs[0-9]*")
+function get_trait_to_variants_from_estimands(estimands; regex=r"^(rs[0-9]*|Affx)")
     trait_to_variants = Dict()
     for Ψ in estimands
         outcome = string(get_outcome(Ψ))
@@ -78,7 +78,8 @@ function update_trait_to_variants_from_gene_atlas!(trait_to_variants, trait_key_
     maf_threshold=0.01,
     pvalue_threshold=1e-5,
     distance_threshold=1e6,
-    max_variants=100
+    max_variants=100,
+    bgen_prefix=nothing
     )
     isdir(gene_atlas_dir) || mkdir(gene_atlas_dir)
     download_variants_info(gene_atlas_dir)
@@ -94,8 +95,10 @@ function update_trait_to_variants_from_gene_atlas!(trait_to_variants, trait_key_
             associations = load_associations(trait_outdir, trait_key, chr)
             variants_info = load_variants_info(gene_atlas_dir, chr)
             associations = innerjoin(associations, variants_info, on="SNP")
+            # Restrict variants to those present in the imputed file
+            associations = keep_only_imputed(associations, bgen_prefix, chr)
             associations.NOTIN_ESTIMAND = [v ∉ estimand_variants for v in associations.SNP]
-            # Only keep variants in estimands or bi-allelic SNPs with "sufficient" MAF and p-value
+            # Only keep variants in estimands OR bi-allelic SNPs with "sufficient" MAF and p-value
             filter!(
                 x -> !(x.NOTIN_ESTIMAND) || (x.PV < pvalue_threshold && x.MAF >= maf_threshold && (length(x.A1) == length(x.A2) == 1)), 
                 associations
@@ -125,9 +128,9 @@ function update_trait_to_variants_from_gene_atlas!(trait_to_variants, trait_key_
             independent_chr_variants[chr] = [x[1] for x in snp_to_pos]
         end
         independent_variants = vcat(values(independent_chr_variants)...)
-        # Check all variants in estimands have been found (i.e genotyped)
+        # Check all variants in estimands have been found
         notfound = setdiff(estimand_variants, independent_variants)
-        isempty(notfound) || throw(ArgumentError(string("Did not find some estimands' variants in geneATLAS: ", notfound)))
+        isempty(notfound) || throw(ArgumentError(string("Did not find some estimands' variants in geneATLAS or Imputed files: ", notfound)))
         # Limit Number of variants to max_variants
         trait_to_variants[trait] = if length(independent_variants) > max_variants
             non_requested_variants = shuffle(setdiff(independent_variants, estimand_variants))
@@ -180,6 +183,7 @@ function get_trait_to_variants(estimands;
     pvalue_threshold=1e-5,
     distance_threshold=1e6,
     max_variants=100,
+    bgen_prefix=nothing
     )
     verbosity > 0 && @info("Retrieve significant variants for each outcome.")
     # Retrieve traits and variants from estimands
@@ -193,7 +197,8 @@ function get_trait_to_variants(estimands;
         maf_threshold=maf_threshold,
         pvalue_threshold=pvalue_threshold,
         distance_threshold=distance_threshold,
-        max_variants=max_variants
+        max_variants=max_variants,
+        bgen_prefix=bgen_prefix
     )
     return trait_to_variants
 end
@@ -307,6 +312,7 @@ variants identified from the geneATLAS.
 Association data is downloaded to `gene_atlas_dir` and cleaned afterwards 
 if `remove_ga_data`. For each outcome, variants are selected if:
 
+- They are in the impute files identified by the `bgen_prefix`
 - They pass a significance threshold: `pvalue_threshold`.
 - They are at least `distance_threshold` away from other variants.
 - They are frequent: `maf_threshold`.
@@ -340,6 +346,7 @@ function simulation_inputs_from_gene_atlas(
     call_threshold=0.9,
     verbosity=0,
     )
+    Random.seed!(123)
     estimands = reduce(
         vcat, 
         TargetedEstimation.read_estimands_config(f).estimands for f ∈ files_matching_prefix(estimands_prefix)
@@ -354,6 +361,7 @@ function simulation_inputs_from_gene_atlas(
         pvalue_threshold=pvalue_threshold,
         distance_threshold=distance_threshold,
         max_variants=max_variants,
+        bgen_prefix=bgen_prefix
         )
     # Dataset and validated estimands
     dataset, estimands = get_dataset_and_validated_estimands(

@@ -12,6 +12,11 @@ using MLJBase
 using TMLE
 using DataFrames
 using Arrow
+using TargeneCore
+
+TARGENCORE_PKGDIR = pkgdir(TargeneCore)
+
+TARGENCORE_TESTDIR = joinpath(TARGENCORE_PKGDIR, "test")
 
 TESTDIR = joinpath(pkgdir(Simulations), "test")
 
@@ -117,6 +122,19 @@ end
         1 0 1 0
         0 1 0 1
     ]
+    # Test read_bgen_chromosome(bgen_prefix, chr)
+    bgen_prefix = joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed", "ukbb")
+    b = Simulations.read_bgen_chromosome(bgen_prefix, 12)
+    @test basename(b.idx.path) == "ukbb_chr12.bgen.bgi"
+    @test !isempty(b.samples)
+    @test occursin("ukbb_chr12.bgen", b.io.name)
+
+    # Test keep_only_imputed
+    associations = DataFrame(SNP=["RSID_101", "RSID_unkwown", "RSID_198"])
+    ## When no bgen prefix is given simply return associations
+    @test Simulations.keep_only_imputed(associations, nothing, 12) === associations
+    ## Otherwise filter
+    @test Simulations.keep_only_imputed(associations, bgen_prefix, 12) == DataFrame(SNP=["RSID_101", "RSID_198"])
 end
 
 @testset "Test train_validation_split" begin

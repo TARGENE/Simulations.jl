@@ -11,7 +11,6 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
     @test include(joinpath(TESTDIR, "density_estimation", "glm.jl"))
     @test include(joinpath(TESTDIR, "density_estimation", "neural_net.jl"))
     @test include(joinpath(TESTDIR, "density_estimation", "density_estimation.jl"))
-
     
     @test include(joinpath(TESTDIR, "samplers", "null_sampler.jl"))
     @test include(joinpath(TESTDIR, "samplers", "density_estimate_sampler.jl"))

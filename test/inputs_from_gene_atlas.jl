@@ -151,6 +151,7 @@ end
         pvalue_threshold=1e-5,
         distance_threshold=1e6,
         max_variants=10,
+        bgen_prefix=nothing
     )
     @test length(trait_to_variants["sarcoidosis"]) == 10
     @test issubset(("rs502771", "rs184270108"), trait_to_variants["sarcoidosis"])

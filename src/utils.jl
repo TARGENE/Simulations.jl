@@ -2,6 +2,19 @@
 ###                          Misc Functions                          ###
 ########################################################################
 
+keep_only_imputed(associations, bgen_prefix::Nothing, chr) = associations
+
+function keep_only_imputed(associations, bgen_prefix, chr)
+    imputed_rsids = DataFrame(SNP=rsids(read_bgen_chromosome(bgen_prefix, chr)))
+    return innerjoin(associations, imputed_rsids, on=:SNP)
+end
+
+function read_bgen_chromosome(bgen_prefix, chr)
+    all_bgens = files_matching_prefix(bgen_prefix)
+    bgen_file = only(filter(x -> endswith(x, string(chr, ".bgen")), all_bgens))
+    return TargeneCore.read_bgen(bgen_file)
+end
+
 function coerce_parents_and_outcome!(dataset, parents; outcome=nothing)
     TargetedEstimation.coerce_types!(dataset, parents)
     if outcome !== nothing
