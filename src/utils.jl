@@ -9,9 +9,14 @@ function keep_only_imputed(associations, bgen_prefix, chr)
     return innerjoin(associations, imputed_rsids, on=:SNP)
 end
 
+get_bgen_chromosome(bgen_files, chr) = only(filter(
+    x -> endswith(x, Regex(string("[^0-9]", chr, ".bgen"))), 
+    bgen_files
+    ))
+
 function read_bgen_chromosome(bgen_prefix, chr)
-    all_bgens = files_matching_prefix(bgen_prefix)
-    bgen_file = only(filter(x -> endswith(x, string(chr, ".bgen")), all_bgens))
+    bgen_files = files_matching_prefix(bgen_prefix)
+    bgen_file = get_bgen_chromosome(bgen_files, chr)
     return TargeneCore.read_bgen(bgen_file)
 end
 

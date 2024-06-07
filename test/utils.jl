@@ -122,6 +122,20 @@ end
         1 0 1 0
         0 1 0 1
     ]
+    # Test get_bgen_chromosome
+    bgen_files = [
+        "ukb_53116_chr11.bgen",   
+        "ukb_53116_chr12.bgen",
+        "ukb_53116_chr12.bgen.bgi",              
+        "ukb_53116_chr12.sample",
+        "ukb_53116_chr2.bgen",
+        "ukb_53116_chr2.bgen.bgi",
+        "ukb_53116_chr2.sample"
+    ]
+    @test Simulations.get_bgen_chromosome(bgen_files, 2) == "ukb_53116_chr2.bgen"
+    @test Simulations.get_bgen_chromosome(bgen_files, 12) == "ukb_53116_chr12.bgen"
+    @test Simulations.get_bgen_chromosome(bgen_files, 11) == "ukb_53116_chr11.bgen"
+
     # Test read_bgen_chromosome(bgen_prefix, chr)
     bgen_prefix = joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed", "ukbb")
     b = Simulations.read_bgen_chromosome(bgen_prefix, 12)
