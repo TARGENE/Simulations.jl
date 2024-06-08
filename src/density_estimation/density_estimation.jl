@@ -7,7 +7,7 @@ function test_density_estimators(X, y; batchsize=16)
     return (snne=snne, glm=glm)
 end
 
-function study_density_estimators(X, y)
+function study_density_estimators(X, y; train_ratio=6)
     snne = SieveNeuralNetworkEstimator(X, y; 
         hidden_sizes_candidates=[(5,), (10,), (20,), (40,), (60,), (80,), (100,), (120,), (140,)], 
         max_epochs=20_000,
@@ -22,11 +22,11 @@ function study_density_estimators(X, y)
     return (snne=snne, glm=glm)
 end
 
-function get_density_estimators(mode, X, y)
+function get_density_estimators(mode, X, y; train_ratio=6)
     density_estimators = if mode == "test"
         test_density_estimators(X, y)
     else
-        study_density_estimators(X, y)
+        study_density_estimators(X, y; train_ratio=train_ratio)
     end
     return density_estimators
 end
@@ -51,7 +51,7 @@ function density_estimation(
     coerce_parents_and_outcome!(dataset, parents, outcome=outcome)
 
     X, y = X_y(dataset, parents, outcome)
-    density_estimators = get_density_estimators(mode, X, y)
+    density_estimators = get_density_estimators(mode, X, y; train_ratio=train_ratio)
     X_train, y_train, X_test, y_test = train_validation_split(X, y; train_ratio=train_ratio)
     metrics = []
     for estimator in density_estimators
@@ -61,7 +61,7 @@ function density_estimation(
         push!(metrics, (train_loss=train_loss, test_loss=test_loss))
     end
     # Retrain Sieve Neural Network
-    snne = get_density_estimators(mode, X, y).snne
+    snne = get_density_estimators(mode, X, y; train_ratio=train_ratio).snne
     train!(snne, X, y, verbosity=verbosity-1)
     # Save
     if output !== nothing
