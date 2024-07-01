@@ -8,7 +8,7 @@ struct DensityEstimateSampler
     treatments::Vector{Symbol}
 end
 
-get_outcomes_set(estimands) = Set(get_outcome(Ψ) for Ψ in estimands)
+get_outcomes_set(estimands) = Set(TargeneCore.get_outcome(Ψ) for Ψ in estimands)
 
 function DensityEstimateSampler(prefix, estimands)
     # Create density to file map (There could be more files than actually required)
@@ -39,7 +39,7 @@ function DensityEstimateSampler(prefix, estimands)
             variables_required_for_estimation,
             pre_outcome_variables
         )
-        push!(variables_required_for_estimation, get_outcome(Ψ))
+        push!(variables_required_for_estimation, TargeneCore.get_outcome(Ψ))
     end
 
     return DensityEstimateSampler(density_mapping, collect(all_parents_set), collect(variables_required_for_estimation), collect(treatments))

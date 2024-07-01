@@ -41,8 +41,8 @@ end
 function get_trait_to_variants_from_estimands(estimands; regex=r"^(rs[0-9]*|Affx)")
     trait_to_variants = Dict()
     for Ψ in estimands
-        outcome = string(get_outcome(Ψ))
-        variants = filter(x -> occursin(regex, x), string.(get_treatments(Ψ)))
+        outcome = string(TargeneCore.get_outcome(Ψ))
+        variants = filter(x -> occursin(regex, x), string.(TargeneCore.get_treatments(Ψ)))
         if haskey(trait_to_variants, outcome)
             union!(trait_to_variants[outcome], variants)
         else
@@ -164,7 +164,7 @@ end
 function group_by_outcome(estimands)
     groups = Dict()
     for Ψ ∈ estimands
-        outcome = Simulations.get_outcome(Ψ)
+        outcome = TargeneCore.get_outcome(Ψ)
         if haskey(groups, outcome)
             push!(groups[outcome], Ψ)
         else
@@ -238,18 +238,18 @@ function get_dataset_and_validated_estimands(
 end
 
 all_treatments(Ψ) = keys(Ψ.treatment_values)
-all_treatments(Ψ::TMLE.ComposedEstimand) = Tuple(union((all_treatments(arg) for arg ∈ Ψ.args)...))
+all_treatments(Ψ::JointEstimand) = Tuple(union((all_treatments(arg) for arg ∈ Ψ.args)...))
 
 all_outcome_extra_covariates(Ψ) = Ψ.outcome_extra_covariates
-all_outcome_extra_covariates(Ψ::TMLE.ComposedEstimand) = Tuple(union((all_outcome_extra_covariates(arg) for arg ∈ Ψ.args)...))
+all_outcome_extra_covariates(Ψ::JointEstimand) = Tuple(union((all_outcome_extra_covariates(arg) for arg ∈ Ψ.args)...))
 
 all_confounders(Ψ) = Tuple(union(values(Ψ.treatment_confounders)...))
-all_confounders(Ψ::TMLE.ComposedEstimand) = Tuple(union((all_confounders(arg) for arg ∈ Ψ.args)...))
+all_confounders(Ψ::JointEstimand) = Tuple(union((all_confounders(arg) for arg ∈ Ψ.args)...))
 
 function write_densities(output_prefix, trait_to_variants, estimands)
     outcome_parents = Dict(outcome => Set(variants) for (outcome, variants) in trait_to_variants)
     for Ψ ∈ estimands
-        outcome = get_outcome(Ψ)
+        outcome = TargeneCore.get_outcome(Ψ)
         new_parents = string.(union(
             all_outcome_extra_covariates(Ψ),
             all_treatments(Ψ),
@@ -285,6 +285,34 @@ function write_ga_simulation_inputs(
 end
 
 """
+For the simulation we require treatment generating processes 
+and outcome generating processes. We infer these required generating processes 
+from the estimands. To ensure that there is no 
+causal gap for any given estimand all confounders need to be 
+observed for each treatment. This means that each treatment must have exactly the 
+same set of confounders in all estimands.
+"""
+function check_only_one_set_of_confounders_per_treatment(estimands)
+    treatment_to_confounders = Dict()
+    for Ψ ∈ estimands
+        for (treatment, confounders) ∈ zip(keys(Ψ.treatment_confounders), Ψ.treatment_confounders)
+            treatment_confounders = get!(treatment_to_confounders, treatment, confounders)
+            if confounders != treatment_confounders
+                throw(ArgumentError(string("Two estimands define two distinct sets of confounders for treatment variables: ", treatment)))
+            end
+        end
+    end
+end
+
+function read_and_validate_estimands(estimands_prefix)
+    estimands = reduce(
+        vcat, 
+        TargetedEstimation.read_estimands_config(f).estimands for f ∈ files_matching_prefix(estimands_prefix)
+    )
+    check_only_one_set_of_confounders_per_treatment(estimands)
+end
+
+"""
     simulation_inputs_from_gene_atlas(
         estimands_prefix, 
         bgen_prefix, 
@@ -304,10 +332,35 @@ end
         verbosity=0,
         )
 
-This function generates input files for density estimates based simulations using 
+This function generates input files for realistic simulations using 
 variants identified from the geneATLAS.
 
-## How are variants selected from the geneATLAS
+## What files are Generated ?
+
+The Generated input files, prefixed by `output_prefix`, are:
+
+- A dataset: Combines `pcs_file`, `traits_file` and called genotypes from `bgen_prefix` at `call_threshold`.
+- Validated estimands: Estimands from `estimands_prefix` are validated. We makes sure the estimands match 
+the data in the dataset and pass the `positivity_constraint`. They are then written in batches of size `batchsize`.
+- Conditional Densities: To be learnt to simulate new data for the estimands of interest.
+
+## How are conditional densities generated ?
+
+For the purpose of simulation, we need to learn a data generating process which is 
+represented by a set of:
+
+- conditional densities for the treatments (genetic variations, ...)
+- conditional densities for the outcomes
+
+We infer the densities that are necessary for the simulation from the provided estimands.
+
+For outcome variables, the union of all parents across estimands is used as well as 
+genetic variants GWAS hits selected from the geneATLAS.
+
+For treatment variables, the set of parents must be equal across estimands 
+to make sure there is no causal gap since we learn only one density per treatment.
+
+## How are variants selected from the geneATLAS ?
 
 Association data is downloaded to `gene_atlas_dir` and cleaned afterwards 
 if `remove_ga_data`. For each outcome, variants are selected if:
@@ -318,15 +371,6 @@ if `remove_ga_data`. For each outcome, variants are selected if:
 - They are frequent: `maf_threshold`.
 
 Finally, a maximum of `max_variants` is retained per outcome.
-
-## What files are Generated
-
-The Generated input files, prefixed by `output_prefix`, are:
-
-- A dataset: Combines `pcs_file`, `traits_file` and called genotypes from `bgen_prefix` at `call_threshold`.
-- Validated estimands: Estimands from `estimands_prefix` are validated. We makes sure the estimands match 
-the data in the dataset and pass the `positivity_constraint`. They are then written in batches of size `batchsize`.
-- Conditional Densities: To be learnt to simulate new data for the estimands of interest.
 """
 function simulation_inputs_from_gene_atlas(
     estimands_prefix, 
@@ -347,10 +391,7 @@ function simulation_inputs_from_gene_atlas(
     verbosity=0,
     )
     Random.seed!(123)
-    estimands = reduce(
-        vcat, 
-        TargetedEstimation.read_estimands_config(f).estimands for f ∈ files_matching_prefix(estimands_prefix)
-    )
+    estimands = read_and_validate_estimands(estimands_prefix)
     # Trait to variants from geneATLAS
     trait_to_variants = get_trait_to_variants(estimands; 
         verbosity=verbosity, 

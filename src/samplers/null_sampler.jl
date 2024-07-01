@@ -14,8 +14,8 @@ struct NullSampler
         other_variables = Set{Symbol}([])
         for Ψ in estimands
             @assert confounders_and_covariates_set(Ψ) == confounders_and_covariates "All estimands should share the same confounders and covariates."
-            push!(other_variables, get_outcome(Ψ))
-            push!(other_variables, get_treatments(Ψ)...)
+            push!(other_variables, TargeneCore.get_outcome(Ψ))
+            push!(other_variables, TargeneCore.get_treatments(Ψ)...)
         end
         return new(confounders_and_covariates, other_variables)
     end
