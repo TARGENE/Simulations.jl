@@ -50,13 +50,13 @@ function estimands_and_traits_to_variants_matching_bgen()
         ATE(
             outcome = "BINARY_2",
             treatment_values = (RSID_2 = (case = "AA", control = "GG"),),
-            treatment_confounders = (RSID_2 = [22001], ),
+            treatment_confounders = (RSID_2 = [], ),
             outcome_extra_covariates = ["COV_1", 21003]
         ),
         CM(
             outcome = "CONTINUOUS_2",
             treatment_values = (RSID_2 = "AA", ),
-            treatment_confounders = (RSID_2 = [22001],),
+            treatment_confounders = (RSID_2 = [],),
             outcome_extra_covariates = ["COV_1", 21003]
         ),
         ATE(
@@ -214,16 +214,19 @@ end
         deserialize(string(output_prefix, ".estimands_$i.jls")).estimands for i in 1:3
     )
     @test loaded_estimands == validated_estimands
-    # 3 densities for the 3 outcomes
+    # 6 densities for the 3 outcomes and 3 treatments
     outcome_to_parents = Dict()
-    for i in 1:3
+    for i in 1:6
         density = JSON.parsefile(string(output_prefix, ".conditional_density_$i.json"))
         outcome_to_parents[density["outcome"]] = sort(density["parents"])
     end
     @test outcome_to_parents == Dict(
-        "BINARY_2"     => ["21003", "22001", "COV_1", "PC1", "PC2", "RSID_2"],
+        "BINARY_2"     => ["21003", "COV_1", "PC1", "PC2", "RSID_2"],
         "CONTINUOUS_2" => ["21003", "22001", "COV_1", "PC1", "PC2", "RSID_198", "RSID_2"],
-        "BINARY_1"     => ["22001", "PC1", "PC2", "RSID_198", "RSID_2", "TREAT_1"]
+        "BINARY_1"     => ["22001", "PC1", "PC2", "RSID_198", "RSID_2", "TREAT_1"],
+        "TREAT_1"      => ["PC1", "PC2"],
+        "RSID_2"       => ["PC1", "PC2"],
+        "RSID_198"     => ["PC1", "PC2"]
     )
 end
 

@@ -28,11 +28,11 @@ function DensityEstimateSampler(prefix, estimands)
     variables_required_for_estimation = Set{Symbol}()
     treatments = Set{Symbol}()
     for Ψ ∈ estimands
-        estimands_treatments = all_treatments(Ψ)
+        estimands_treatments = TargeneCore.get_treatments(Ψ)
         pre_outcome_variables = union(
-            all_outcome_extra_covariates(Ψ),
+            TargeneCore.get_outcome_extra_covariates(Ψ),
             estimands_treatments,
-            all_confounders(Ψ),
+            TargeneCore.get_all_confounders(Ψ),
         )
         union!(treatments, estimands_treatments)
         union!(

@@ -237,31 +237,31 @@ function get_dataset_and_validated_estimands(
     return dataset, estimands
 end
 
-all_treatments(Ψ) = keys(Ψ.treatment_values)
-all_treatments(Ψ::JointEstimand) = Tuple(union((all_treatments(arg) for arg ∈ Ψ.args)...))
-
-all_outcome_extra_covariates(Ψ) = Ψ.outcome_extra_covariates
-all_outcome_extra_covariates(Ψ::JointEstimand) = Tuple(union((all_outcome_extra_covariates(arg) for arg ∈ Ψ.args)...))
-
-all_confounders(Ψ) = Tuple(union(values(Ψ.treatment_confounders)...))
-all_confounders(Ψ::JointEstimand) = Tuple(union((all_confounders(arg) for arg ∈ Ψ.args)...))
-
 function write_densities(output_prefix, trait_to_variants, estimands)
-    outcome_parents = Dict(outcome => Set(variants) for (outcome, variants) in trait_to_variants)
+    # Initialise densities from trait_to_variants
+    conditional_densities = Dict(outcome => Set(variants) for (outcome, variants) in trait_to_variants)
     for Ψ ∈ estimands
+        # Update outcome's parents list
         outcome = TargeneCore.get_outcome(Ψ)
+        treatments = TargeneCore.get_treatments(Ψ)
         new_parents = string.(union(
-            all_outcome_extra_covariates(Ψ),
-            all_treatments(Ψ),
-            all_confounders(Ψ)
+            TargeneCore.get_outcome_extra_covariates(Ψ),
+            treatments,
+            TargeneCore.get_all_confounders(Ψ)
         ))
         union!(
-            outcome_parents[string(outcome)],
+            conditional_densities[string(outcome)],
             new_parents
         )
+        # Add treatment mechanism if not already present
+        for treatment in treatments
+            if !haskey(conditional_densities, treatment)
+                conditional_densities[string.(treatment)] = Set(string.(TargeneCore.get_confounders(Ψ, treatment)))
+            end
+        end
     end
     density_index = 1
-    for (outcome, parents) in outcome_parents
+    for (outcome, parents) in conditional_densities
         open(string(output_prefix, ".conditional_density_", density_index, ".json"), "w") do io
             JSON.print(io, Dict("outcome" => outcome, "parents" => collect(parents)), 1)
         end

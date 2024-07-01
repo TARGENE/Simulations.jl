@@ -2417,8 +2417,8 @@ version = "1.10.0"
 
 [[deps.TargeneCore]]
 deps = ["ArgParse", "Arrow", "BGEN", "CSV", "CairoMakie", "CategoricalArrays", "Combinatorics", "DataFrames", "Distributions", "HTTP", "JLD2", "JSON", "Mmap", "PackageCompiler", "Random", "Serialization", "SnpArrays", "StableRNGs", "Statistics", "TMLE", "TargetedEstimation", "YAML"]
-git-tree-sha1 = "8a55da8720207917dc8a129c591a7a1f08757698"
-repo-rev = "1f66e2675dcfe72fed8281bda6add7c3a8d229f2"
+git-tree-sha1 = "aae258ddfe45ba5338c08bce5e1baa8e2bfc486e"
+repo-rev = "99a03060823299861c5bdb7303b187b9b939294a"
 repo-url = "https://github.com/TARGENE/TargeneCore.jl"
 uuid = "3aa9512e-41c2-4133-bfaa-ba71048dd391"
 version = "0.7.0"
