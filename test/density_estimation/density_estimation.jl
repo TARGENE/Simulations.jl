@@ -2,7 +2,6 @@ module TestModelSelection
 
 using Test
 using Simulations
-using Simulations: get_treatments
 using Random
 using Distributions
 using DataFrames

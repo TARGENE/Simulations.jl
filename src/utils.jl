@@ -171,8 +171,8 @@ function get_conditional_densities_variables(estimands)
 end
 
 function compute_statistics(dataset, Ψ::TMLE.Estimand)
-    outcome = get_outcome(Ψ)
-    treatments = get_treatments(Ψ)
+    outcome = TargeneCore.get_outcome(Ψ)
+    treatments = TargeneCore.get_treatments(Ψ)
     nomissing_dataset = dropmissing(dataset, [outcome, treatments..., confounders_and_covariates_set(Ψ)...])
     categorical_variables = TargetedEstimation.isbinary(outcome, nomissing_dataset) ? (outcome, treatments...) : treatments
 
@@ -294,7 +294,7 @@ function get_confounders_assert_equal(Ψ::TMLE.Estimand)
     return first(treatment_confounders)
 end
 
-function get_confounders_assert_equal(Ψ::TMLE.ComposedEstimand)
+function get_confounders_assert_equal(Ψ::JointEstimand)
     args_confounders = [get_confounders_assert_equal(arg) for arg ∈ Ψ.args]
     @assert allequal(args_confounders)
     return first(args_confounders)
@@ -308,7 +308,7 @@ end
 
 get_covariates_assert_equal(Ψ::TMLE.Estimand) = Ψ.outcome_extra_covariates
 
-function get_covariates_assert_equal(Ψ::TMLE.ComposedEstimand)
+function get_covariates_assert_equal(Ψ::JointEstimand)
     args_covariates = [get_covariates_assert_equal(arg) for arg ∈ Ψ.args]
     @assert allequal(args_covariates)
     return first(args_covariates)
@@ -330,23 +330,5 @@ function confounders_and_covariates_set(Ψ)
     return confounders_and_covariates
 end
 
-confounders_and_covariates_set(Ψ::ComposedEstimand) = 
+confounders_and_covariates_set(Ψ::JointEstimand) = 
     union((confounders_and_covariates_set(arg) for arg in Ψ.args)...)
-
-get_outcome(Ψ) = Ψ.outcome
-
-function get_outcome(Ψ::ComposedEstimand)
-    @assert Ψ.f == TMLE.joint_estimand "Only joint estimands can be processed at the moment."
-    outcome = get_outcome(first(Ψ.args))
-    @assert all(get_outcome(x) == outcome for x in Ψ.args)
-    return outcome
-end
-
-get_treatments(Ψ) = keys(Ψ.treatment_values)
-
-function get_treatments(Ψ::ComposedEstimand) 
-    @assert Ψ.f == TMLE.joint_estimand "Only joint estimands can be processed at the moment."
-    treatments = get_treatments(first(Ψ.args))
-    @assert all(get_treatments(x) == treatments for x in Ψ.args)
-    return treatments
-end

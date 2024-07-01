@@ -50,13 +50,13 @@ function estimands_and_traits_to_variants_matching_bgen()
         ATE(
             outcome = "BINARY_2",
             treatment_values = (RSID_2 = (case = "AA", control = "GG"),),
-            treatment_confounders = (RSID_2 = [22001], ),
+            treatment_confounders = (RSID_2 = [], ),
             outcome_extra_covariates = ["COV_1", 21003]
         ),
         CM(
             outcome = "CONTINUOUS_2",
             treatment_values = (RSID_2 = "AA", ),
-            treatment_confounders = (RSID_2 = [22001],),
+            treatment_confounders = (RSID_2 = [],),
             outcome_extra_covariates = ["COV_1", 21003]
         ),
         ATE(
@@ -65,20 +65,19 @@ function estimands_and_traits_to_variants_matching_bgen()
             treatment_confounders = (RSID_2 = [], RSID_198 = []),
             outcome_extra_covariates = [22001]
         ),
-        ComposedEstimand(
-            TMLE.joint_estimand, (
-                CM(
+        JointEstimand(
+            CM(
                 outcome = "BINARY_1",
                 treatment_values = (RSID_2 = "GG", RSID_198 = "GA"),
                 treatment_confounders = (RSID_2 = [], RSID_198 = []),
                 outcome_extra_covariates = [22001]
             ),
-                CM(
+            CM(
                 outcome = "BINARY_1",
                 treatment_values = (RSID_2 = "AA", RSID_198 = "GA"),
                 treatment_confounders = (RSID_2 = [], RSID_198 = []),
                 outcome_extra_covariates = [22001]
-            ))
+            )
         )
     ]
     traits_to_variants = Dict(
@@ -87,6 +86,16 @@ function estimands_and_traits_to_variants_matching_bgen()
         "BINARY_2" => ["RSID_2"],
         )
     return estimands, traits_to_variants
+end
+
+@testset "Test check_only_one_set_of_confounders_per_treatment" begin
+    estimands = Any[
+        CM(outcome=:Y, treatment_values=(T=1,), treatment_confounders=(:W1, :W2)),
+        CM(outcome=:Y, treatment_values=(T=0,), treatment_confounders=(:W1, :W2)),
+    ]
+    Simulations.check_only_one_set_of_confounders_per_treatment(estimands)
+    push!(estimands, ATE(outcome=:Y, treatment_values=(T=(case=0,control=1),), treatment_confounders=(:W1,)))
+    @test_throws ArgumentError Simulations.check_only_one_set_of_confounders_per_treatment(estimands)
 end
 
 @testset "Test get_trait_to_variants_from_estimands" begin
@@ -181,7 +190,7 @@ end
     @test size(dataset, 1) == 490
     @test length(estimands) == length(validated_estimands)
     # Check estimands have been matched to the dataset: GA -> AG
-    Ψ = validated_estimands[findfirst(x->x isa TMLE.ComposedEstimand, validated_estimands)]
+    Ψ = validated_estimands[findfirst(x->x isa JointEstimand, validated_estimands)]
     @test Ψ.args[1].treatment_values.RSID_198 == "AG"
     @test Ψ.args[2].treatment_values.RSID_198 == "AG"
 
@@ -205,16 +214,19 @@ end
         deserialize(string(output_prefix, ".estimands_$i.jls")).estimands for i in 1:3
     )
     @test loaded_estimands == validated_estimands
-    # 3 densities for the 3 outcomes
+    # 6 densities for the 3 outcomes and 3 treatments
     outcome_to_parents = Dict()
-    for i in 1:3
+    for i in 1:6
         density = JSON.parsefile(string(output_prefix, ".conditional_density_$i.json"))
         outcome_to_parents[density["outcome"]] = sort(density["parents"])
     end
     @test outcome_to_parents == Dict(
-        "BINARY_2"     => ["21003", "22001", "COV_1", "PC1", "PC2", "RSID_2"],
+        "BINARY_2"     => ["21003", "COV_1", "PC1", "PC2", "RSID_2"],
         "CONTINUOUS_2" => ["21003", "22001", "COV_1", "PC1", "PC2", "RSID_198", "RSID_2"],
-        "BINARY_1"     => ["22001", "PC1", "PC2", "RSID_198", "RSID_2", "TREAT_1"]
+        "BINARY_1"     => ["22001", "PC1", "PC2", "RSID_198", "RSID_2", "TREAT_1"],
+        "TREAT_1"      => ["PC1", "PC2"],
+        "RSID_2"       => ["PC1", "PC2"],
+        "RSID_198"     => ["PC1", "PC2"]
     )
 end
 
