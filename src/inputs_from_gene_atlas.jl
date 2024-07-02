@@ -295,9 +295,10 @@ same set of confounders in all estimands.
 function check_only_one_set_of_confounders_per_treatment(estimands)
     treatment_to_confounders = Dict()
     for Ψ ∈ estimands
-        for (treatment, confounders) ∈ zip(keys(Ψ.treatment_confounders), Ψ.treatment_confounders)
-            treatment_confounders = get!(treatment_to_confounders, treatment, confounders)
-            if confounders != treatment_confounders
+        for treatment ∈ TargeneCore.get_treatments(Ψ)
+            confounders = TargeneCore.get_confounders(Ψ, treatment)
+            current_confounders = get!(treatment_to_confounders, treatment, confounders)
+            if confounders != current_confounders
                 throw(ArgumentError(string("Two estimands define two distinct sets of confounders for treatment variables: ", treatment)))
             end
         end

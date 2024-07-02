@@ -90,11 +90,16 @@ end
 
 @testset "Test check_only_one_set_of_confounders_per_treatment" begin
     estimands = Any[
-        CM(outcome=:Y, treatment_values=(T=1,), treatment_confounders=(:W1, :W2)),
-        CM(outcome=:Y, treatment_values=(T=0,), treatment_confounders=(:W1, :W2)),
+        JointEstimand(
+            CM(outcome=:Y, treatment_values=(T=1,), treatment_confounders=(:W1, :W2)),
+            CM(outcome=:Y, treatment_values=(T=0,), treatment_confounders=(:W1, :W2))
+        )
     ]
     Simulations.check_only_one_set_of_confounders_per_treatment(estimands)
-    push!(estimands, ATE(outcome=:Y, treatment_values=(T=(case=0,control=1),), treatment_confounders=(:W1,)))
+    push!(
+        estimands,
+        ATE(outcome=:Y, treatment_values=(T=(case=0,control=1),), treatment_confounders=(:W1,))
+    )
     @test_throws ArgumentError Simulations.check_only_one_set_of_confounders_per_treatment(estimands)
 end
 
