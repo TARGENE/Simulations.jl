@@ -14,9 +14,9 @@ function cli_settings()
             action = :command
             help = "Estimate a conditional density."
         
-        "simulation-inputs-from-ga"
+        "realistic-simulation-inputs"
             action = :command
-            help = "Generate simulation inputs from geneATLAS."
+            help = "Generate realistic simulation inputs optionally using geneATLAS hits."
 
         "analyse"
             action = :command
@@ -157,7 +157,7 @@ function cli_settings()
 
     end
 
-    @add_arg_table! s["simulation-inputs-from-ga"] begin
+    @add_arg_table! s["realistic-simulation-inputs"] begin
         "estimands-prefix"
             arg_type = String
             help = "A prefix to serialized TMLE.Configuration (accepted formats: .json | .yaml | .jls)"
@@ -173,6 +173,11 @@ function cli_settings()
         "pcs"
             arg_type = String
             help = "The dataset of principal components."
+        
+        "--sample-gene-atlas-hits"
+            arg_type = Bool
+            default = true
+            help = "Whether to sample additional variants from the geneATLAS."
 
         "--ga-download-dir"
             arg_type = String
@@ -233,7 +238,11 @@ function cli_settings()
             arg_type = Int
             default = 10
             help = "Estimands are further split in files of `batchsize`"
-            
+        
+        "--variants-regex"
+            arg_type = String
+            default = "^(rs[0-9]*|Affx)"
+            help = "Regular expression to identify genetic variants from estimands."
     end
 
     return s
@@ -262,12 +271,13 @@ function julia_main()::Cint
             )
     elseif cmd == "aggregate"
         save_aggregated_df_results(cmd_settings["input-prefix"], cmd_settings["out"])
-    elseif cmd == "simulation-inputs-from-ga"
-        simulation_inputs_from_gene_atlas(
+    elseif cmd == "realistic-simulation-inputs"
+        realistic_simulation_inputs(
             cmd_settings["estimands-prefix"],
             cmd_settings["bgen-prefix"],
             cmd_settings["traits"],
             cmd_settings["pcs"];
+            sample_gene_atlas_hits=cmd_settings["sample-gene-atlas-hits"],
             gene_atlas_dir=cmd_settings["ga-download-dir"],
             remove_ga_data=cmd_settings["remove-ga-data"], 
             trait_table_path=cmd_settings["ga-trait-table"],
@@ -279,7 +289,8 @@ function julia_main()::Cint
             verbosity=cmd_settings["verbosity"],
             output_prefix=cmd_settings["output-prefix"],
             batchsize=cmd_settings["batchsize"],
-            max_variants=cmd_settings["max-variants"]
+            max_variants=cmd_settings["max-variants"],
+            variants_regex=cmd_settings["variants-regex"]
         )
     elseif cmd == "density-estimation-inputs"
         density_estimation_inputs(
@@ -306,6 +317,8 @@ function julia_main()::Cint
             dataset_file=cmd_settings["dataset-file"],
             density_estimates_prefix=cmd_settings["density-estimates-prefix"],
         )
+    else
+        throw(ArgumentError(string("No function matching command:", cmd)))
     end
 
     return 0

@@ -6,7 +6,7 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
 @testset "Simulations.jl" begin
     # Unit Tests
     @test include(joinpath(TESTDIR, "utils.jl"))
-    @test include(joinpath(TESTDIR, "inputs_from_gene_atlas.jl"))
+    @test include(joinpath(TESTDIR, "realistic_simulation_inputs.jl"))
 
     @test include(joinpath(TESTDIR, "density_estimation", "glm.jl"))
     @test include(joinpath(TESTDIR, "density_estimation", "neural_net.jl"))

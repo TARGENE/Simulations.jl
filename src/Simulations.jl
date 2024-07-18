@@ -32,7 +32,7 @@ include(joinpath("density_estimation", "density_estimation.jl"))
 include(joinpath("samplers", "null_sampler.jl"))
 include(joinpath("samplers", "density_estimate_sampler.jl"))
 
-include(joinpath("inputs_from_gene_atlas.jl"))
+include(joinpath("realistic_simulation_inputs.jl"))
 include("estimation.jl")
 include("cli.jl")
 

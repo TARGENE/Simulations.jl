@@ -38,11 +38,11 @@ function download_variants_info(outdir)
     end
 end
 
-function get_trait_to_variants_from_estimands(estimands; regex=r"^(rs[0-9]*|Affx)")
+function get_trait_to_variants_from_estimands(estimands; variants_regex=r"^(rs[0-9]*|Affx)")
     trait_to_variants = Dict()
     for Ψ in estimands
         outcome = string(TargeneCore.get_outcome(Ψ))
-        variants = filter(x -> occursin(regex, x), string.(TargeneCore.get_treatments(Ψ)))
+        variants = filter(x -> occursin(variants_regex, x), string.(TargeneCore.get_treatments(Ψ)))
         if haskey(trait_to_variants, outcome)
             union!(trait_to_variants[outcome], variants)
         else
@@ -174,7 +174,9 @@ function group_by_outcome(estimands)
     return groups
 end
 
-function get_trait_to_variants(estimands; 
+function get_trait_to_variants(estimands;
+    variants_regex=r"^(rs[0-9]*|Affx)",
+    sample_gene_atlas_hits=true,
     verbosity=0, 
     gene_atlas_dir="gene_atlas_data",
     remove_ga_data=true,
@@ -187,19 +189,21 @@ function get_trait_to_variants(estimands;
     )
     verbosity > 0 && @info("Retrieve significant variants for each outcome.")
     # Retrieve traits and variants from estimands
-    trait_to_variants = get_trait_to_variants_from_estimands(estimands)
-    # Retrieve Trait to geneAtlas key map
-    trait_key_map = get_trait_key_map(keys(trait_to_variants), trait_table_path=trait_table_path)
-    # Update variant set for each trait using geneAtlas summary statistics
-    update_trait_to_variants_from_gene_atlas!(trait_to_variants, trait_key_map; 
-        gene_atlas_dir=gene_atlas_dir,
-        remove_ga_data=remove_ga_data,
-        maf_threshold=maf_threshold,
-        pvalue_threshold=pvalue_threshold,
-        distance_threshold=distance_threshold,
-        max_variants=max_variants,
-        bgen_prefix=bgen_prefix
-    )
+    trait_to_variants = get_trait_to_variants_from_estimands(estimands;variants_regex=variants_regex)
+    if sample_gene_atlas_hits
+        # Retrieve Trait to geneAtlas key map
+        trait_key_map = get_trait_key_map(keys(trait_to_variants), trait_table_path=trait_table_path)
+        # Update variant set for each trait using geneAtlas summary statistics
+        update_trait_to_variants_from_gene_atlas!(trait_to_variants, trait_key_map; 
+            gene_atlas_dir=gene_atlas_dir,
+            remove_ga_data=remove_ga_data,
+            maf_threshold=maf_threshold,
+            pvalue_threshold=pvalue_threshold,
+            distance_threshold=distance_threshold,
+            max_variants=max_variants,
+            bgen_prefix=bgen_prefix
+        )
+    end
     return trait_to_variants
 end
 
@@ -214,7 +218,7 @@ function get_dataset_and_validated_estimands(
     verbosity=0
     )
     verbosity > 0 && @info("Calling genotypes.")
-    variants_set = Set(string.(vcat(values(trait_to_variants)...)))
+    variants_set = Set(string.(union(values(trait_to_variants)...)))
 
     genotypes = TargeneCore.call_genotypes(
         bgen_prefix, 
@@ -315,11 +319,12 @@ function read_and_validate_estimands(estimands_prefix)
 end
 
 """
-    simulation_inputs_from_gene_atlas(
+    realistic_simulation_inputs(
         estimands_prefix, 
         bgen_prefix, 
         traits_file, 
         pcs_file;
+        sample_gene_atlas_hits=true,
         gene_atlas_dir="gene_atlas_data",
         remove_ga_data=true,
         trait_table_path=joinpath("assets", "Traits_Table_GeneATLAS.csv"),
@@ -334,8 +339,8 @@ end
         verbosity=0,
         )
 
-This function generates input files for realistic simulations using 
-variants identified from the geneATLAS.
+This function generates input files for realistic simulations optionally sampling 
+variants identified from the geneATLAS (`sample_gene_atlas_hits`).
 
 ## What files are Generated ?
 
@@ -374,11 +379,12 @@ if `remove_ga_data`. For each outcome, variants are selected if:
 
 Finally, a maximum of `max_variants` is retained per outcome.
 """
-function simulation_inputs_from_gene_atlas(
+function realistic_simulation_inputs(
     estimands_prefix, 
     bgen_prefix, 
     traits_file, 
     pcs_file;
+    sample_gene_atlas_hits=true,
     gene_atlas_dir="gene_atlas_data",
     remove_ga_data=true,
     trait_table_path=joinpath("assets", "Traits_Table_GeneATLAS.csv"),
@@ -390,12 +396,15 @@ function simulation_inputs_from_gene_atlas(
     batchsize=10,
     positivity_constraint=0,
     call_threshold=0.9,
+    variants_regex="^(rs[0-9]*|Affx)",
     verbosity=0,
     )
     Random.seed!(123)
     estimands = read_and_validate_estimands(estimands_prefix)
     # Trait to variants from geneATLAS
-    trait_to_variants = get_trait_to_variants(estimands; 
+    trait_to_variants = get_trait_to_variants(estimands;
+        sample_gene_atlas_hits=sample_gene_atlas_hits,
+        variants_regex=Regex(variants_regex),
         verbosity=verbosity, 
         gene_atlas_dir=gene_atlas_dir,
         remove_ga_data=remove_ga_data,

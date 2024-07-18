@@ -107,21 +107,21 @@ end
     estimands = linear_interaction_dataset_ATEs().estimands
     push!(estimands, ATE(outcome=:Ycont, treatment_values=(T₃=(case=1, control=0),), treatment_confounders=(:W,)))
     # Empty regex
-    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; regex=r"")
+    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; variants_regex=r"")
     @test trait_to_variants == Dict(
         "Ycont"  => Set(["T₁", "T₃"]),
         "Ybin"   => Set(["T₁", "T₂"]),
         "Ycount" => Set(["T₁"])
         )
     # T₂ regex
-    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; regex=r"T₂")
+    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; variants_regex=r"T₂")
     @test trait_to_variants == Dict(
         "Ycont"  => Set(),
         "Ybin"   => Set(["T₂"]),
         "Ycount" => Set()
         )
     # T₁ regex
-    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; regex=r"T₁")
+    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; variants_regex=r"T₁")
     @test trait_to_variants == Dict(
         "Ycont"  => Set(["T₁"]),
         "Ybin"   => Set(["T₁"]),
@@ -147,10 +147,60 @@ end
     )
 end
 
-@testset "Test simulation_inputs_from_gene_atlas" begin
-    # The function `simulation_inputs_from_gene_atlas` is hard to test end to end due to
-    # data limitations. It is split into 3 subfunctions that we here test sequentially but 
-    # with different data.
+@testset "Test realistic_simulation_inputs: sample_gene_atlas_hits=false" begin
+    verbosity = 0
+    tmpdir = mktempdir()
+    estimands_prefix = joinpath(tmpdir, "estimands.jls")
+    bgen_prefix = joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed" ,"ukbb")
+    traits_file = joinpath(TARGENCORE_TESTDIR, "data", "traits_1.csv")
+    pcs_file = joinpath(TARGENCORE_TESTDIR, "data", "pcs.csv")
+    output_prefix = joinpath(tmpdir, "realistic_inputs")
+    estimands, _ = estimands_and_traits_to_variants_matching_bgen()
+    serialize(estimands_prefix, TMLE.Configuration(estimands=estimands))
+    
+    copy!(ARGS, [
+        "realistic-simulation-inputs",
+        estimands_prefix,
+        bgen_prefix,
+        traits_file,
+        pcs_file,
+        "--sample-gene-atlas-hits=false",
+        "--ga-download-dir=gene_atlas_data",
+        "--remove-ga-data=true",
+        string("--ga-trait-table=", joinpath(PKGDIR, "assets", "Traits_Table_GeneATLAS.csv")),
+        "--maf-threshold=0.01",
+        "--pvalue-threshold=1e-5",
+        "--distance-threshold=1e6",
+        "--max-variants=100",
+        string("--output-prefix=", output_prefix),
+        "--batchsize=10",
+        "--positivity-constraint=0",
+        "--call-threshold=0.9",
+        "--verbosity=0",
+        "--variants-regex=^RS"
+        ]
+    )
+    Simulations.julia_main()
+
+    conditional_densities = Set([JSON.parsefile(f) for f in TargeneCore.files_matching_prefix(string(output_prefix, ".conditional_density"))])
+    @test conditional_densities == Set([
+        Dict("parents" => Any["RSID_2", "COV_1", "PC2", "21003", "PC1"], "outcome" => "BINARY_2")
+        Dict("parents" => Any["PC2", "PC1"], "outcome" => "TREAT_1")
+        Dict("parents" => Any["PC2", "PC1"], "outcome" => "RSID_2")
+        Dict("parents" => Any["RSID_2", "22001", "PC2", "RSID_198", "PC1", "21003", "COV_1"], "outcome" => "CONTINUOUS_2")
+        Dict("parents" => Any["TREAT_1", "RSID_2", "22001", "PC2", "RSID_198", "PC1"], "outcome" => "BINARY_1")
+        Dict("parents" => Any["PC2", "PC1"], "outcome" => "RSID_198")
+    ])
+    dataset = Arrow.Table(string(output_prefix, ".data.arrow")) |> DataFrame
+    @test names(dataset) == ["SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_198"]
+    output_config = deserialize(string(output_prefix, ".estimands_1.jls"))
+    @test length(estimands) == length(output_config.estimands)
+end
+
+@testset "Test realistic_simulation_inputs: sample_gene_atlas_hits=true" begin
+    # The function `realistic_simulation_inputs` is hard to test end to end when involving sampling
+    # variants from the gene-atlas. It is split into 3 subfunctions that we here test sequentially but 
+    # each with different data.
     verbosity = 0
     # Here we use the real geneATLAS data
     tmpdir = mktempdir()
