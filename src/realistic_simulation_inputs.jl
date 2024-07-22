@@ -38,15 +38,25 @@ function download_variants_info(outdir)
     end
 end
 
-function get_trait_to_variants_from_estimands(estimands; variants_regex=r"^(rs[0-9]*|Affx)")
+function set_or_update_trait_to_variants!(trait_to_variants, outcome, variants)
+    if haskey(trait_to_variants, outcome)
+        union!(trait_to_variants[outcome], variants)
+    else
+        trait_to_variants[outcome] = Set(variants)
+    end
+end
+
+function initialize_trait_to_variants(estimands, variables)
     trait_to_variants = Dict()
     for Ψ in estimands
         outcome = string(get_outcome(Ψ))
-        variants = filter(x -> occursin(variants_regex, x), string.(get_treatments(Ψ)))
-        if haskey(trait_to_variants, outcome)
-            union!(trait_to_variants[outcome], variants)
+        variants = string.(intersect(get_treatments(Ψ), variables.genetic_variants))
+        if outcome == "ALL"
+            for newoutcome ∈ string.(variables.outcomes)
+                set_or_update_trait_to_variants!(trait_to_variants, newoutcome, variants)
+            end
         else
-            trait_to_variants[outcome] = Set(variants)
+            set_or_update_trait_to_variants!(trait_to_variants, outcome, variants)
         end
     end
     return trait_to_variants
@@ -174,10 +184,7 @@ function group_by_outcome(estimands)
     return groups
 end
 
-function get_trait_to_variants(estimands;
-    variants_regex=r"^(rs[0-9]*|Affx)",
-    sample_gene_atlas_hits=true,
-    verbosity=0, 
+function update_trait_to_variants_from_ga!(trait_to_variants;
     gene_atlas_dir="gene_atlas_data",
     remove_ga_data=true,
     trait_table_path=joinpath("assets", "Traits_Table_GeneATLAS.csv"),
@@ -187,58 +194,18 @@ function get_trait_to_variants(estimands;
     max_variants=100,
     bgen_prefix=nothing
     )
-    verbosity > 0 && @info("Retrieve significant variants for each outcome.")
-    # Retrieve traits and variants from estimands
-    trait_to_variants = get_trait_to_variants_from_estimands(estimands;variants_regex=variants_regex)
-    if sample_gene_atlas_hits
-        # Retrieve Trait to geneAtlas key map
-        trait_key_map = get_trait_key_map(keys(trait_to_variants), trait_table_path=trait_table_path)
-        # Update variant set for each trait using geneAtlas summary statistics
-        update_trait_to_variants_from_gene_atlas!(trait_to_variants, trait_key_map; 
-            gene_atlas_dir=gene_atlas_dir,
-            remove_ga_data=remove_ga_data,
-            maf_threshold=maf_threshold,
-            pvalue_threshold=pvalue_threshold,
-            distance_threshold=distance_threshold,
-            max_variants=max_variants,
-            bgen_prefix=bgen_prefix
-        )
-    end
-    return trait_to_variants
-end
-
-function get_dataset_and_validated_estimands(
-    estimands,
-    bgen_prefix,
-    traits_file,
-    pcs_file,
-    trait_to_variants;
-    call_threshold=0.9,
-    positivity_constraint=0.,
-    verbosity=0
+    # Retrieve Trait to geneAtlas key map
+    trait_key_map = get_trait_key_map(keys(trait_to_variants), trait_table_path=trait_table_path)
+    # Update variant set for each trait using geneAtlas summary statistics
+    update_trait_to_variants_from_gene_atlas!(trait_to_variants, trait_key_map; 
+        gene_atlas_dir=gene_atlas_dir,
+        remove_ga_data=remove_ga_data,
+        maf_threshold=maf_threshold,
+        pvalue_threshold=pvalue_threshold,
+        distance_threshold=distance_threshold,
+        max_variants=max_variants,
+        bgen_prefix=bgen_prefix
     )
-    verbosity > 0 && @info("Calling genotypes.")
-    variants_set = Set(string.(union(values(trait_to_variants)...)))
-
-    genotypes = TargeneCore.call_genotypes(
-        bgen_prefix, 
-        variants_set, 
-        call_threshold
-    )
-    ## Read PCs and traits
-    traits = TargeneCore.read_csv_file(traits_file)
-    pcs = TargeneCore.read_csv_file(pcs_file)
-    ## Merge all together
-    dataset = TargeneCore.merge(traits, pcs, genotypes)
-
-    # Validate Estimand
-    verbosity > 0 && @info("Validating estimands.")
-    variables = TargeneCore.get_variables(estimands, traits, pcs)
-    estimands = TargeneCore.adjusted_estimands(
-        estimands, variables, dataset; 
-        positivity_constraint=positivity_constraint
-    )
-    return dataset, estimands
 end
 
 function write_densities(output_prefix, trait_to_variants, estimands)
@@ -396,42 +363,52 @@ function realistic_simulation_inputs(
     batchsize=10,
     positivity_constraint=0,
     call_threshold=0.9,
-    variants_regex="^(rs[0-9]*|Affx)",
     verbosity=0,
     )
     Random.seed!(123)
+    # Read estimands
     estimands = read_and_validate_estimands(estimands_prefix)
+    # Read traits and PCA data
+    traits = TargeneCore.read_csv_file(traits_file)
+    pcs = TargeneCore.read_csv_file(pcs_file)
+    # Get variables
+    variables = TargeneCore.get_variables(estimands, traits, pcs)
+    traits_to_variants = initialize_trait_to_variants(estimands, variables)
     # Trait to variants from geneATLAS
-    trait_to_variants = get_trait_to_variants(estimands;
-        sample_gene_atlas_hits=sample_gene_atlas_hits,
-        variants_regex=Regex(variants_regex),
-        verbosity=verbosity, 
-        gene_atlas_dir=gene_atlas_dir,
-        remove_ga_data=remove_ga_data,
-        trait_table_path=trait_table_path,
-        maf_threshold=maf_threshold,
-        pvalue_threshold=pvalue_threshold,
-        distance_threshold=distance_threshold,
-        max_variants=max_variants,
-        bgen_prefix=bgen_prefix
+    if sample_gene_atlas_hits
+        update_trait_to_variants_from_ga!(traits_to_variants;
+            gene_atlas_dir=gene_atlas_dir,
+            remove_ga_data=remove_ga_data,
+            trait_table_path=trait_table_path,
+            maf_threshold=maf_threshold,
+            pvalue_threshold=pvalue_threshold,
+            distance_threshold=distance_threshold,
+            max_variants=max_variants,
+            bgen_prefix=bgen_prefix
         )
-    # Dataset and validated estimands
-    dataset, estimands = get_dataset_and_validated_estimands(
-        estimands,
-        bgen_prefix,
-        traits_file,
-        pcs_file,
-        trait_to_variants;
-        call_threshold=call_threshold,
-        positivity_constraint=positivity_constraint,
-        verbosity=verbosity
+    end
+    # Call variants from BGEN & Merge all data sources
+    verbosity > 0 && @info("Calling genotypes from BGEN files.")
+    variants_set = Set(string.(union(values(traits_to_variants)...)))
+    genotypes = TargeneCore.call_genotypes(
+        bgen_prefix, 
+        variants_set, 
+        call_threshold
+    )
+    dataset = TargeneCore.merge(traits, pcs, genotypes)
+    # Validate Estimands
+    verbosity > 0 && @info("Validating estimands.")
+    estimands = TargeneCore.adjusted_estimands(
+        estimands, variables, dataset; 
+        positivity_constraint=positivity_constraint
     )
     # Write outputs
+    verbosity > 0 && @info("Writing Estimation Inputs.")
     write_ga_simulation_inputs(
         output_prefix,
         dataset,
         estimands,
-        trait_to_variants;
+        traits_to_variants;
         batchsize=batchsize,
         verbosity=verbosity
         )

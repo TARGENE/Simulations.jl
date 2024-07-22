@@ -238,11 +238,6 @@ function cli_settings()
             arg_type = Int
             default = 10
             help = "Estimands are further split in files of `batchsize`"
-        
-        "--variants-regex"
-            arg_type = String
-            default = "^(rs[0-9]*|Affx)"
-            help = "Regular expression to identify genetic variants from estimands."
     end
 
     return s
@@ -289,8 +284,7 @@ function julia_main()::Cint
             verbosity=cmd_settings["verbosity"],
             output_prefix=cmd_settings["output-prefix"],
             batchsize=cmd_settings["batchsize"],
-            max_variants=cmd_settings["max-variants"],
-            variants_regex=cmd_settings["variants-regex"]
+            max_variants=cmd_settings["max-variants"]
         )
     elseif cmd == "density-estimation-inputs"
         density_estimation_inputs(

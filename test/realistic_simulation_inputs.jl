@@ -21,7 +21,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
 
 function gene_atlas_estimands()
     return [
-        factorialEstimand(ATE, (rs502771=["TT", "TC", "CC"],), "sarcoidosis";
+        factorialEstimand(ATE, (rs502771=["TT", "TC", "CC"],), "ALL";
             confounders=[:PC1, :PC2, :PC3], 
             outcome_extra_covariates=["Genetic-Sex", "Age-Assessment"]
         ),
@@ -40,54 +40,6 @@ function gene_atlas_estimands()
     ]
 end
 
-function estimands_and_traits_to_variants_matching_bgen()
-    estimands = [
-        IATE(
-            outcome = "BINARY_1",
-            treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)),
-            treatment_confounders = (RSID_2 = [], TREAT_1 = [])
-        ),
-        ATE(
-            outcome = "BINARY_2",
-            treatment_values = (RSID_2 = (case = "AA", control = "GG"),),
-            treatment_confounders = (RSID_2 = [], ),
-            outcome_extra_covariates = ["COV_1", 21003]
-        ),
-        CM(
-            outcome = "CONTINUOUS_2",
-            treatment_values = (RSID_2 = "AA", ),
-            treatment_confounders = (RSID_2 = [],),
-            outcome_extra_covariates = ["COV_1", 21003]
-        ),
-        ATE(
-            outcome = "CONTINUOUS_2",
-            treatment_values = (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "GA", control = "AA")),
-            treatment_confounders = (RSID_2 = [], RSID_198 = []),
-            outcome_extra_covariates = [22001]
-        ),
-        JointEstimand(
-            CM(
-                outcome = "BINARY_1",
-                treatment_values = (RSID_2 = "GG", RSID_198 = "GA"),
-                treatment_confounders = (RSID_2 = [], RSID_198 = []),
-                outcome_extra_covariates = [22001]
-            ),
-            CM(
-                outcome = "BINARY_1",
-                treatment_values = (RSID_2 = "AA", RSID_198 = "GA"),
-                treatment_confounders = (RSID_2 = [], RSID_198 = []),
-                outcome_extra_covariates = [22001]
-            )
-        )
-    ]
-    traits_to_variants = Dict(
-        "BINARY_1" => ["RSID_2", "RSID_198"],
-        "CONTINUOUS_2" => ["RSID_2", "RSID_198"],
-        "BINARY_2" => ["RSID_2"],
-        )
-    return estimands, traits_to_variants
-end
-
 @testset "Test check_only_one_set_of_confounders_per_treatment" begin
     estimands = Any[
         JointEstimand(
@@ -103,30 +55,21 @@ end
     @test_throws ArgumentError Simulations.check_only_one_set_of_confounders_per_treatment(estimands)
 end
 
-@testset "Test get_trait_to_variants_from_estimands" begin
-    estimands = linear_interaction_dataset_ATEs().estimands
-    push!(estimands, ATE(outcome=:Ycont, treatment_values=(T₃=(case=1, control=0),), treatment_confounders=(:W,)))
-    # Empty regex
-    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; variants_regex=r"")
+@testset "Test initialize_trait_to_variants" begin
+    estimands, _ = estimands_and_traits_to_variants_matching_bgen()
+    variables = (genetic_variants=Set([:RSID_2]), outcomes=Set([:BINARY_1, :BINARY_2, :CONTINUOUS_1]))
+    trait_to_variants = Simulations.initialize_trait_to_variants(estimands, variables)
     @test trait_to_variants == Dict(
-        "Ycont"  => Set(["T₁", "T₃"]),
-        "Ybin"   => Set(["T₁", "T₂"]),
-        "Ycount" => Set(["T₁"])
+        "BINARY_2"     => Set(["RSID_2"]),
+        "BINARY_1"     => Set(["RSID_2"]),
+        "CONTINUOUS_1" => Set(["RSID_2"])
         )
-    # T₂ regex
-    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; variants_regex=r"T₂")
+    variables = (genetic_variants=Set([:RSID_2, :RSID_198]), outcomes=Set([:BINARY_1, :BINARY_2]))
+    trait_to_variants = Simulations.initialize_trait_to_variants(estimands, variables)
     @test trait_to_variants == Dict(
-        "Ycont"  => Set(),
-        "Ybin"   => Set(["T₂"]),
-        "Ycount" => Set()
-        )
-    # T₁ regex
-    trait_to_variants = Simulations.get_trait_to_variants_from_estimands(estimands; variants_regex=r"T₁")
-    @test trait_to_variants == Dict(
-        "Ycont"  => Set(["T₁"]),
-        "Ybin"   => Set(["T₁"]),
-        "Ycount" => Set(["T₁"])
-        )
+        "BINARY_2"     => Set(["RSID_2"]),
+        "BINARY_1"     => Set(["RSID_2", "RSID_198"]),
+    )
 end
 
 @testset "Test get_trait_key_map" begin
@@ -148,7 +91,6 @@ end
 end
 
 @testset "Test realistic_simulation_inputs: sample_gene_atlas_hits=false" begin
-    verbosity = 0
     tmpdir = mktempdir()
     estimands_prefix = joinpath(tmpdir, "estimands.jls")
     bgen_prefix = joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed" ,"ukbb")
@@ -177,37 +119,56 @@ end
         "--positivity-constraint=0",
         "--call-threshold=0.9",
         "--verbosity=0",
-        "--variants-regex=^RS"
         ]
     )
     Simulations.julia_main()
-
+    # Check conditional densities
     conditional_densities = Set([JSON.parsefile(f) for f in TargeneCore.files_matching_prefix(string(output_prefix, ".conditional_density"))])
     @test conditional_densities == Set([
-        Dict("parents" => Any["RSID_2", "COV_1", "PC2", "21003", "PC1"], "outcome" => "BINARY_2")
-        Dict("parents" => Any["PC2", "PC1"], "outcome" => "TREAT_1")
-        Dict("parents" => Any["PC2", "PC1"], "outcome" => "RSID_2")
-        Dict("parents" => Any["RSID_2", "22001", "PC2", "RSID_198", "PC1", "21003", "COV_1"], "outcome" => "CONTINUOUS_2")
-        Dict("parents" => Any["TREAT_1", "RSID_2", "22001", "PC2", "RSID_198", "PC1"], "outcome" => "BINARY_1")
-        Dict("parents" => Any["PC2", "PC1"], "outcome" => "RSID_198")
+        # Treatment mechanisms
+        Dict("parents" => ["PC2", "PC1"], "outcome" => "TREAT_1"),
+        Dict("parents" => ["PC2", "PC1"], "outcome" => "RSID_2"),
+        Dict("parents" => ["PC2", "PC1"], "outcome" => "RSID_198"),
+        # Outcome mechanisms: inferred from ATE with ALL
+        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "BINARY_2"),
+        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "COV_1"),
+        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "CONTINUOUS_2"),
+        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "21003"),
+        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "CONTINUOUS_1"),
+        # Outcome mechanisms: from both JointEstimand and ATE with ALL, note the presence of TREAT_1 in the parents
+        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "RSID_198", "PC1"], "outcome" => "BINARY_1")
     ])
+    # Check dataset
     dataset = Arrow.Table(string(output_prefix, ".data.arrow")) |> DataFrame
     @test names(dataset) == ["SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_198"]
-    output_config = deserialize(string(output_prefix, ".estimands_1.jls"))
-    @test length(estimands) == length(output_config.estimands)
+    @test size(dataset) == (490, 13)
+    # 1 estimand for the JointEstimand and 6 for the ATE
+    output_estimands = deserialize(string(output_prefix, ".estimands_1.jls")).estimands
+    @test length(output_estimands) == 7
+    # Check estimands have been matched to the dataset: GA -> AG
+    Ψ = output_estimands[findfirst(x->x isa JointEstimand, output_estimands)]
+    @test Ψ.args[1].treatment_values.RSID_198 == "AG"
+    @test Ψ.args[2].treatment_values.RSID_198 == "AG"
 end
 
 @testset "Test realistic_simulation_inputs: sample_gene_atlas_hits=true" begin
     # The function `realistic_simulation_inputs` is hard to test end to end when involving sampling
-    # variants from the gene-atlas. It is split into 3 subfunctions that we here test sequentially but 
-    # each with different data.
-    verbosity = 0
-    # Here we use the real geneATLAS data
+    # variants from the gene-atlas. Only the first parts of the function are tested here
     tmpdir = mktempdir()
     estimands = gene_atlas_estimands()
-    trait_to_variants = Simulations.get_trait_to_variants(
-        estimands; 
-        verbosity=0, 
+    variables = (
+        genetic_variants = Set([:rs502771, :rs184270108, :rs11868112, :rs356219, :rs6456121]),
+        outcomes= Set([:sarcoidosis, Symbol("G20 Parkinson's disease"), Symbol("J40-J47 Chronic lower respiratory diseases")])
+    )
+    ## All outcomes inherit rs502771 as a parent from the first estimand
+    trait_to_variants = Simulations.initialize_trait_to_variants(estimands, variables)
+    @test trait_to_variants == Dict(
+        "sarcoidosis"              => Set(["rs502771", "rs184270108"]),
+        "J40-J47 Chronic lower respiratory diseases" => Set(["rs502771"]),
+        "G20 Parkinson's disease"  => Set(["rs502771", "rs11868112", "rs6456121", "rs356219"])
+    )
+    Simulations.update_trait_to_variants_from_ga!(
+        trait_to_variants; 
         gene_atlas_dir=joinpath(tmpdir, "gene_atlas_data"),
         remove_ga_data=true,
         trait_table_path=joinpath(PKGDIR, "assets", "Traits_Table_GeneATLAS.csv"),
@@ -219,70 +180,10 @@ end
     )
     @test length(trait_to_variants["sarcoidosis"]) == 10
     @test issubset(("rs502771", "rs184270108"), trait_to_variants["sarcoidosis"])
+    @test length(trait_to_variants["J40-J47 Chronic lower respiratory diseases"]) == 10
+    @test issubset(("rs502771", ), trait_to_variants["J40-J47 Chronic lower respiratory diseases"])
     @test length(trait_to_variants["G20 Parkinson's disease"]) == 10
     @test issubset(("rs11868112", "rs6456121", "rs356219"), trait_to_variants["G20 Parkinson's disease"])
-
-    # Dataset and validated estimands
-    # We change the data to match what is in the BGEN file
-    estimands, trait_to_variants = estimands_and_traits_to_variants_matching_bgen()
-    bgen_prefix = joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed" ,"ukbb")
-    traits_file = joinpath(TARGENCORE_TESTDIR, "data", "traits_1.csv")
-    pcs_file = joinpath(TARGENCORE_TESTDIR, "data", "pcs.csv")
-    positivity_constraint = 0
-    call_threshold = 0.9
-    dataset, validated_estimands = Simulations.get_dataset_and_validated_estimands(
-        estimands,
-        bgen_prefix,
-        traits_file,
-        pcs_file,
-        trait_to_variants;
-        call_threshold=call_threshold,
-        positivity_constraint=positivity_constraint,
-        verbosity=verbosity
-    )
-    @test names(dataset) == ["SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", "COV_1",
-        "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_198"]
-    @test size(dataset, 1) == 490
-    @test length(estimands) == length(validated_estimands)
-    # Check estimands have been matched to the dataset: GA -> AG
-    Ψ = validated_estimands[findfirst(x->x isa JointEstimand, validated_estimands)]
-    @test Ψ.args[1].treatment_values.RSID_198 == "AG"
-    @test Ψ.args[2].treatment_values.RSID_198 == "AG"
-
-    # Now the writing
-    output_prefix = joinpath(tmpdir, "ga.input")
-    batchsize = 2
-    Simulations.write_ga_simulation_inputs(
-        output_prefix,
-        dataset,
-        validated_estimands,
-        trait_to_variants;
-        batchsize=batchsize,
-        verbosity=verbosity
-    )
-    # One dataset
-    loaded_dataset = Arrow.Table(string(output_prefix, ".data.arrow")) |> DataFrame
-    @test size(loaded_dataset) == (490, 13)
-    # 5 estimands split in 3 files of size (2, 2, 1)
-    loaded_estimands = reduce(
-        vcat, 
-        deserialize(string(output_prefix, ".estimands_$i.jls")).estimands for i in 1:3
-    )
-    @test loaded_estimands == validated_estimands
-    # 6 densities for the 3 outcomes and 3 treatments
-    outcome_to_parents = Dict()
-    for i in 1:6
-        density = JSON.parsefile(string(output_prefix, ".conditional_density_$i.json"))
-        outcome_to_parents[density["outcome"]] = sort(density["parents"])
-    end
-    @test outcome_to_parents == Dict(
-        "BINARY_2"     => ["21003", "COV_1", "PC1", "PC2", "RSID_2"],
-        "CONTINUOUS_2" => ["21003", "22001", "COV_1", "PC1", "PC2", "RSID_198", "RSID_2"],
-        "BINARY_1"     => ["22001", "PC1", "PC2", "RSID_198", "RSID_2", "TREAT_1"],
-        "TREAT_1"      => ["PC1", "PC2"],
-        "RSID_2"       => ["PC1", "PC2"],
-        "RSID_198"     => ["PC1", "PC2"]
-    )
 end
 
 end

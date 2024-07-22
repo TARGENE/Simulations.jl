@@ -25,5 +25,4 @@ RUN julia --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompi
 RUN julia --project --startup-file=no deps/build_sysimage.jl
 
 # Check script is callable
-
 RUN julia --project --startup-file=no -JSimulations.so targene-simulation.jl --help
