@@ -26,23 +26,19 @@ include(joinpath(TESTDIR, "testutils.jl"))
     estimands_filename = joinpath(inputdir, "estimands.yaml")
     save_configuration_macthing_bgen(estimands_filename)
     # Creating the inputs
-    parsed_args = Dict(
-        "out-prefix" => joinpath(inputdir, "final"), 
-        "batch-size" => 2,
-        "positivity-constraint" => 0.,
-        "verbosity" => 0,
-
-        "%COMMAND%" => "from-param-file",
-
-        "from-param-file" => Dict{String, Any}(
-            "paramfile" => estimands_filename,
-            "traits" => joinpath(TARGENCORE_TESTDIR, "data", "traits_1.csv"),
-            "pcs" => joinpath(TARGENCORE_TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => 0.8, 
-            "bgen-prefix" => joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-            ), 
-    )
-    TargeneCore.tl_inputs_from_param_files(parsed_args)
+    copy!(ARGS, [
+        "estimation-inputs",
+        estimands_filename,
+        string("--traits-file=", joinpath(TARGENCORE_TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TARGENCORE_TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(inputdir, "final")), 
+        "--call-threshold=0.8",
+        "--batchsize=2",
+        "--verbosity=0",
+        "--positivity-constraint=0"
+    ])
+    TargeneCore.julia_main()
     # Estimation runs
     outdir = mktempdir()
     nrepeats = 2

@@ -16,15 +16,15 @@ function DensityEstimateSampler(prefix, estimands)
     outcomes_set = Set{Symbol}()
     for Ψ ∈ estimands
         # Update outcomes_set
-        outcome = TargeneCore.get_outcome(Ψ)
+        outcome = get_outcome(Ψ)
         push!(outcomes_set, outcome)
         # Update treatments_set
-        treatments = TargeneCore.get_treatments(Ψ)
+        treatments = get_treatments(Ψ)
         union!(treatments_set, treatments)
         # Update roots_set
         roots = union(
-            TargeneCore.get_outcome_extra_covariates(Ψ),
-            TargeneCore.get_all_confounders(Ψ)
+            get_outcome_extra_covariates(Ψ),
+            get_all_confounders(Ψ)
         )
         union!(roots_set, roots)
         # Update variables_required_for_estimation

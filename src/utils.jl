@@ -171,8 +171,8 @@ function get_conditional_densities_variables(estimands)
 end
 
 function compute_statistics(dataset, Ψ::TMLE.Estimand)
-    outcome = TargeneCore.get_outcome(Ψ)
-    treatments = TargeneCore.get_treatments(Ψ)
+    outcome = get_outcome(Ψ)
+    treatments = get_treatments(Ψ)
     nomissing_dataset = dropmissing(dataset, [outcome, treatments..., confounders_and_covariates_set(Ψ)...])
     categorical_variables = TargetedEstimation.isbinary(outcome, nomissing_dataset) ? (outcome, treatments...) : treatments
 

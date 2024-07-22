@@ -41,8 +41,8 @@ end
 function get_trait_to_variants_from_estimands(estimands; variants_regex=r"^(rs[0-9]*|Affx)")
     trait_to_variants = Dict()
     for Ψ in estimands
-        outcome = string(TargeneCore.get_outcome(Ψ))
-        variants = filter(x -> occursin(variants_regex, x), string.(TargeneCore.get_treatments(Ψ)))
+        outcome = string(get_outcome(Ψ))
+        variants = filter(x -> occursin(variants_regex, x), string.(get_treatments(Ψ)))
         if haskey(trait_to_variants, outcome)
             union!(trait_to_variants[outcome], variants)
         else
@@ -164,7 +164,7 @@ end
 function group_by_outcome(estimands)
     groups = Dict()
     for Ψ ∈ estimands
-        outcome = TargeneCore.get_outcome(Ψ)
+        outcome = get_outcome(Ψ)
         if haskey(groups, outcome)
             push!(groups[outcome], Ψ)
         else
@@ -246,12 +246,12 @@ function write_densities(output_prefix, trait_to_variants, estimands)
     conditional_densities = Dict(outcome => Set(variants) for (outcome, variants) in trait_to_variants)
     for Ψ ∈ estimands
         # Update outcome's parents list
-        outcome = TargeneCore.get_outcome(Ψ)
-        treatments = TargeneCore.get_treatments(Ψ)
+        outcome = get_outcome(Ψ)
+        treatments = get_treatments(Ψ)
         new_parents = string.(union(
-            TargeneCore.get_outcome_extra_covariates(Ψ),
+            get_outcome_extra_covariates(Ψ),
             treatments,
-            TargeneCore.get_all_confounders(Ψ)
+            get_all_confounders(Ψ)
         ))
         union!(
             conditional_densities[string(outcome)],
@@ -260,7 +260,7 @@ function write_densities(output_prefix, trait_to_variants, estimands)
         # Add treatment mechanism if not already present
         for treatment in treatments
             if !haskey(conditional_densities, treatment)
-                conditional_densities[string.(treatment)] = Set(string.(TargeneCore.get_confounders(Ψ, treatment)))
+                conditional_densities[string.(treatment)] = Set(string.(get_confounders(Ψ, treatment)))
             end
         end
     end
@@ -283,7 +283,7 @@ function write_ga_simulation_inputs(
     )
     verbosity > 0 && @info("Writing outputs.")
     # Writing estimands and dataset
-    TargeneCore.write_tl_inputs(output_prefix, dataset, estimands; batch_size=batchsize)
+    TargeneCore.write_estimation_inputs(output_prefix, dataset, estimands; batchsize=batchsize)
     # Writing densities
     write_densities(output_prefix, trait_to_variants, estimands)
 end
@@ -299,8 +299,8 @@ same set of confounders in all estimands.
 function check_only_one_set_of_confounders_per_treatment(estimands)
     treatment_to_confounders = Dict()
     for Ψ ∈ estimands
-        for treatment ∈ TargeneCore.get_treatments(Ψ)
-            confounders = TargeneCore.get_confounders(Ψ, treatment)
+        for treatment ∈ get_treatments(Ψ)
+            confounders = get_confounders(Ψ, treatment)
             current_confounders = get!(treatment_to_confounders, treatment, confounders)
             if confounders != current_confounders
                 throw(ArgumentError(string("Two estimands define two distinct sets of confounders for treatment variables: ", treatment)))
