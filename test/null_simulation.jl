@@ -34,7 +34,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
         string("--genotypes-prefix=", joinpath(TARGENCORE_TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
         string("--outprefix=", joinpath(inputdir, "final")), 
         "--call-threshold=0.8",
-        "--batchsize=2",
+        "--batchsize=3",
         "--verbosity=0",
         "--positivity-constraint=0"
     ])
@@ -65,7 +65,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
         @test io["estimators"] == (:wTMLE_GLMNET, :TMLE_GLMNET, :OSE_GLMNET)
         @test length(io["statistics_by_repeat_id"]) == 2
         @test names(io["results"]) == ["wTMLE_GLMNET", "TMLE_GLMNET", "OSE_GLMNET", "REPEAT_ID", "RNG_SEED"]
-        @test size(io["results"]) == (4, 5)
+        @test size(io["results"]) == (6, 5)
     end
     ## Run 2: vanilla-xgboost / ATEs / sample-size=200
     workdir2 = mktempdir()
@@ -89,7 +89,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
         @test io["estimators"] == (:wTMLE_XGBOOST, :TMLE_XGBOOST, :OSE_XGBOOST)
         @test length(io["statistics_by_repeat_id"]) == 2
         @test names(io["results"]) == ["wTMLE_XGBOOST", "TMLE_XGBOOST", "OSE_XGBOOST", "REPEAT_ID", "RNG_SEED"]
-        @test size(io["results"]) == (4, 5)
+        @test size(io["results"]) == (6, 5)
     end
     ## Run 3: vanilla-xgboost / ATEs / sample-size=200 / 4 repeats
     workdir3 = mktempdir()
@@ -127,14 +127,14 @@ include(joinpath(TESTDIR, "testutils.jl"))
         results = io["results"]
         run_1 = results[(:wTMLE_GLMNET, :TMLE_GLMNET, :OSE_GLMNET)][100]
         @test names(run_1) == ["wTMLE_GLMNET", "TMLE_GLMNET", "OSE_GLMNET", "REPEAT_ID", "RNG_SEED"]
-        @test size(run_1) == (4, 5)
-        @test run_1.REPEAT_ID == [1, 1, 2, 2]
-        @test run_1.RNG_SEED ==[0, 0, 0, 0]
+        @test size(run_1) == (6, 5)
+        @test run_1.REPEAT_ID == [1, 1, 1, 2, 2, 2]
+        @test run_1.RNG_SEED ==[0, 0, 0, 0, 0, 0]
         run_2_3 = results[(:wTMLE_XGBOOST, :TMLE_XGBOOST, :OSE_XGBOOST)][200]
         @test names(run_2_3) == ["wTMLE_XGBOOST", "TMLE_XGBOOST", "OSE_XGBOOST", "REPEAT_ID", "RNG_SEED"]
-        @test size(run_2_3) == (6, 5)
-        @test run_2_3.REPEAT_ID == [1, 1, 2, 2, 1, 2]
-        @test run_2_3.RNG_SEED ==[1, 1, 1, 1, 2, 2]
+        @test size(run_2_3) == (8, 5)
+        @test run_2_3.REPEAT_ID == [1, 1, 1, 2, 2, 2, 1, 2]
+        @test run_2_3.RNG_SEED ==[1, 1, 1, 1, 1, 1, 2, 2]
     end
 end
 
