@@ -56,8 +56,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
         "--max-sampling-attempts=1000",
         string("--n-repeats=", nrepeats),
         "--rng=0",
-        string("--out=", out1),
-        string("--workdir=", workdir1)
+        string("--out=", out1)
     ])
     Simulations.julia_main()
     jldopen(out1) do io
@@ -80,8 +79,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
         "--max-sampling-attempts=1000",
         string("--n-repeats=", nrepeats),
         "--rng=1",
-        string("--out=", out2),
-        string("--workdir=", workdir2)
+        string("--out=", out2)
     ])
     Simulations.julia_main()
     jldopen(out2) do io
@@ -104,8 +102,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
         "--max-sampling-attempts=1000",
         string("--n-repeats=", nrepeats),
         "--rng=2",
-        string("--out=", out3),
-        string("--workdir=", workdir3)
+        string("--out=", out3)
     ])
     Simulations.julia_main()
     jldopen(out3) do io

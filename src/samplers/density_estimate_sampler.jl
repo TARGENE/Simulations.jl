@@ -41,7 +41,7 @@ function DensityEstimateSampler(prefix, estimands)
     # Create density to file maps (There could be more files than required)
     treatments_densities = Dict()
     outcomes_densities = Dict()
-    for f ∈ files_matching_prefix(prefix)
+    for f ∈ TargeneCore.files_matching_prefix(prefix)
         jldopen(f) do io
             outcome = Symbol(io["outcome"])
             if any(outcome ∈ set for set ∈ (outcomes_set, treatments_set))

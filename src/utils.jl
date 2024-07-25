@@ -15,7 +15,7 @@ get_bgen_chromosome(bgen_files, chr) = only(filter(
     ))
 
 function read_bgen_chromosome(bgen_prefix, chr)
-    bgen_files = files_matching_prefix(bgen_prefix)
+    bgen_files = TargeneCore.files_matching_prefix(bgen_prefix)
     bgen_file = get_bgen_chromosome(bgen_files, chr)
     return TargeneCore.read_bgen(bgen_file)
 end
@@ -224,39 +224,6 @@ end
 ###                    Results Files Manipulation                    ###
 ########################################################################
 
-function files_matching_prefix(prefix)
-    directory, _prefix = splitdir(prefix)
-    _directory = directory == "" ? "." : directory
-
-    return map(
-        f -> joinpath(directory, f),
-        filter(
-            f -> startswith(f, _prefix), 
-            readdir(_directory)
-        )
-    )
-end
-
-function read_results_file(file)
-    jldopen(file) do io
-        return reduce(vcat, (io[key] for key in keys(io)))
-    end
-end
-
-repeat_filename(outdir, repeat) = joinpath(outdir, string("output_", repeat, ".hdf5"))
-
-function read_results_dir(outdir)
-    results = []
-    for filename in readdir(outdir, join=true)
-        repeat_id = parse(Int, split(replace(filename, ".hdf5" => ""), "_")[end])
-        fileresults = read_results_file(filename)
-        fileresults = [merge(result, (REPEAT_ID=repeat_id,)) for result in fileresults]
-        append!(results, fileresults)
-    end
-    
-    return DataFrame(results)
-end
-
 function save_aggregated_df_results(input_prefix, out)
     dir = dirname(input_prefix)
     dir = dir !== "" ? dir : "."
@@ -287,38 +254,6 @@ end
 ########################################################################
 ###                    Estimand variables accessors                  ###
 ########################################################################
-
-function get_confounders_assert_equal(Ψ::TMLE.Estimand)
-    treatment_confounders = values(Ψ.treatment_confounders)
-    @assert allequal(treatment_confounders)
-    return first(treatment_confounders)
-end
-
-function get_confounders_assert_equal(Ψ::JointEstimand)
-    args_confounders = [get_confounders_assert_equal(arg) for arg ∈ Ψ.args]
-    @assert allequal(args_confounders)
-    return first(args_confounders)
-end
-
-function get_confounders_assert_equal(estimands)
-    estimands_confounders = [get_confounders_assert_equal(Ψ) for Ψ ∈ estimands]
-    @assert allequal(estimands_confounders)
-    return first(estimands_confounders)
-end
-
-get_covariates_assert_equal(Ψ::TMLE.Estimand) = Ψ.outcome_extra_covariates
-
-function get_covariates_assert_equal(Ψ::JointEstimand)
-    args_covariates = [get_covariates_assert_equal(arg) for arg ∈ Ψ.args]
-    @assert allequal(args_covariates)
-    return first(args_covariates)
-end
-
-function get_covariates_assert_equal(estimands)
-    estimands_covariates = [get_covariates_assert_equal(Ψ) for Ψ ∈ estimands]
-    @assert allequal(estimands_covariates)
-    return first(estimands_covariates)
-end
 
 function confounders_and_covariates_set(Ψ)
     confounders_and_covariates = Set{Symbol}([])

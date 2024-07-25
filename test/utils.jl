@@ -3,8 +3,7 @@ module TestUtils
 using Simulations
 using Simulations: get_input_size, transpose_table,
     transpose_target, getlabels, train_validation_split, 
-    confounders_and_covariates_set,    
-    get_confounders_assert_equal, get_covariates_assert_equal
+    confounders_and_covariates_set
 using Test
 using CategoricalArrays
 using DataFrames
@@ -47,41 +46,7 @@ end
     @test confounders_and_covariates_set(Ψcont) == Set([:W, :C])
 
     @test confounders_and_covariates_set(composedΨ) == Set([:W, :C])
-
-    @test get_confounders_assert_equal([Ψcont, Ψcount, composedΨ]) == (:W,)
-    @test get_covariates_assert_equal([Ψcont, Ψcount, composedΨ]) == (:C,)
-
-    # Estimands with incompatible confounders/covariates
-    Ψincompatible = CM(
-        outcome="toto", 
-        treatment_values=(T1=1, T2=1),
-        treatment_confounders=(T1=[:W], T2=[:newW]),
-        outcome_extra_covariates=(:newC,)
-    )
-    @test get_covariates_assert_equal(Ψincompatible) == (:newC,)
-    @test_throws AssertionError get_confounders_assert_equal(Ψincompatible)
     
-    Ψincompatible = JointEstimand(
-
-        ATE(
-            outcome=:Ybin,
-            treatment_values = (T₁ = (case=1, control=0), T₂ = (case=1, control=0)),
-            treatment_confounders = (:W1,),
-            outcome_extra_covariates = (:C1,)
-        ),
-        ATE(
-            outcome=:Ybin,
-            treatment_values = (T₁ = (case=0, control=1), T₂ = (case=0, control=1)),
-            treatment_confounders = (:W2,),
-            outcome_extra_covariates = (:C2,)
-        )
-
-    )
-    @test_throws AssertionError get_confounders_assert_equal(Ψincompatible)
-    @test_throws AssertionError get_covariates_assert_equal(Ψincompatible)
-
-    @test_throws AssertionError get_confounders_assert_equal([Ψincompatible.args[1], Ψcont])
-    @test_throws AssertionError get_covariates_assert_equal([Ψincompatible.args[1], Ψcont])
 end
 
 @testset "Test misc" begin

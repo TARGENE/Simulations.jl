@@ -2421,16 +2421,16 @@ version = "1.10.0"
 
 [[deps.TargeneCore]]
 deps = ["ArgParse", "Arrow", "BGEN", "CSV", "CairoMakie", "CategoricalArrays", "Combinatorics", "DataFrames", "Distributions", "JLD2", "PackageCompiler", "Random", "Serialization", "SnpArrays", "StableRNGs", "Statistics", "TMLE", "TargetedEstimation", "YAML"]
-git-tree-sha1 = "db86e4116df18fa8c67de41e69a5deb1ac2db43e"
-repo-rev = "78a943a91e4cc74bc52d8143553977db0d407022"
+git-tree-sha1 = "41837cc667157da46f778fb0e014c177c040c1d0"
+repo-rev = "7b2ffedcee561a084cf5e19a8067c9e67072fc37"
 repo-url = "https://github.com/TARGENE/TargeneCore.jl"
 uuid = "3aa9512e-41c2-4133-bfaa-ba71048dd391"
 version = "0.7.0"
 
 [[deps.TargetedEstimation]]
 deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "HDF5", "JLD2", "JSON", "MKL", "MLJ", "MLJBase", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "Mmap", "MultipleTesting", "Optim", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
-git-tree-sha1 = "98ae29ef85f5bbeb088b1003c58ced0e0e6104d3"
-repo-rev = "acc1de14e05517b6b5e1fe441526f097edb8eb19"
+git-tree-sha1 = "9cf3987b177a22ca374b9b11ab7a89de5bdd56b3"
+repo-rev = "f4620ef1565f71019fa539e746ff109727e6671c"
 repo-url = "https://github.com/TARGENE/TargetedEstimation.jl"
 uuid = "2573d147-4098-46ba-9db2-8608d210ccac"
 version = "0.9.0"

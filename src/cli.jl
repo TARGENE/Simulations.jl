@@ -119,11 +119,6 @@ function cli_settings()
             arg_type = Int
             help = "Random seed (Only used for estimands ordering at the moment)."
             default = 123
-        
-        "--workdir"
-            arg_type = String
-            help = "Working directory"
-            default = mktempdir()
     end
 
     @add_arg_table! s["density-estimation"] begin
@@ -154,7 +149,6 @@ function cli_settings()
             arg_type = Int
             default = 0
             help = "Verbosity level."
-
     end
 
     @add_arg_table! s["realistic-simulation-inputs"] begin
@@ -261,9 +255,8 @@ function julia_main()::Cint
             min_occurences=cmd_settings["min-occurences"],
             verbosity=cmd_settings["verbosity"],
             rng_seed=cmd_settings["rng"], 
-            chunksize=cmd_settings["chunksize"],
-            workdir=cmd_settings["workdir"]
-            )
+            chunksize=cmd_settings["chunksize"]
+        )
     elseif cmd == "aggregate"
         save_aggregated_df_results(cmd_settings["input-prefix"], cmd_settings["out"])
     elseif cmd == "realistic-simulation-inputs"
