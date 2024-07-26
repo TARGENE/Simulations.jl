@@ -19,6 +19,5 @@ default_models = TMLE.default_models(
 
 ESTIMATORS = (
   wTMLE_GLMNET = TMLEE(models=default_models, weighted=true),
-  TMLE_GLMNET = TMLEE(models=default_models, weighted=false),
   OSE_GLMNET = OSE(models=default_models)
 )

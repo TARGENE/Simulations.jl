@@ -224,31 +224,31 @@ end
 ###                    Results Files Manipulation                    ###
 ########################################################################
 
+
+function update_results_dict!(results_dict, estimator, sample_size, Ψ̂)
+    key = (estimator, Ψ̂.estimand, sample_size)
+    key_results = get!(results_dict, key, [])
+    push!(key_results, Ψ̂)
+end
+
 function save_aggregated_df_results(input_prefix, out)
-    dir = dirname(input_prefix)
-    dir = dir !== "" ? dir : "."
-    baseprefix = basename(input_prefix)
     results_dict = Dict()
-    for file in readdir(dir)
-        if startswith(file, baseprefix)
-            io = jldopen(joinpath(dir, file))
+    for file in TargeneCore.files_matching_prefix(input_prefix)
+        jldopen(file) do io
             estimators = io["estimators"]
-            results = io["results"]
+            file_results = io["results"]
             sample_size = io["sample_size"]
-            if haskey(results_dict, estimators)
-                estimators_dict = results_dict[estimators]
-                if haskey(estimators_dict, sample_size)
-                    estimators_dict[sample_size] = vcat(estimators_dict[sample_size], results)
-                else
-                    estimators_dict[sample_size] = results
+            for estimator in estimators
+                for Ψ̂ in file_results[!, estimator]
+                    update_results_dict!(results_dict, estimator, sample_size, Ψ̂)
                 end
-            else
-                results_dict[estimators] = Dict(sample_size => results)
             end
-            close(io)
         end
     end
-    jldsave(out, results=results_dict)
+    results_pairs = collect(results_dict)
+    results_df = DataFrame(first.(results_pairs), [:ESTIMATOR, :ESTIMAND, :SAMPLE_SIZE])
+    results_df.ESTIMATES = last.(results_pairs)
+    jldsave(out, results=results_df)
 end
 
 ########################################################################
