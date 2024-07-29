@@ -91,7 +91,7 @@ function safe_sample_from(conditional_density_estimate, sampled_dataset, parents
     throw(ErrorException(msg)) 
 end
 
-function sample_from(sampler::DensityEstimateSampler, origin_dataset; 
+function sample_roots_and_treatments(sampler::DensityEstimateSampler, origin_dataset;
     n=100, 
     min_occurences=10,
     max_attempts=1000,
@@ -108,13 +108,29 @@ function sample_from(sampler::DensityEstimateSampler, origin_dataset;
     coerce_parents_and_outcome!(sampled_dataset, sampler.roots; outcome=nothing)
     # Sample Treatments
     for (treatment, (parents, file)) in sampler.treatments_densities
-        conditional_density_estimate = Simulations.sieve_neural_net_density_estimator(file)
+        conditional_density_estimate = sieve_neural_net_density_estimator(file)
         sampled_dataset[!, treatment] = safe_sample_from(conditional_density_estimate, sampled_dataset, parents;
             min_occurences=min_occurences,
             max_attempts=max_attempts,
             verbosity = verbosity
         )
     end
+    return sampled_dataset
+end
+
+function sample_from(sampler::DensityEstimateSampler, origin_dataset; 
+    n=100, 
+    min_occurences=10,
+    max_attempts=1000,
+    verbosity = 1
+    )
+    # Sample Roots and Treatments
+    sampled_dataset = sample_roots_and_treatments(sampler::DensityEstimateSampler, origin_dataset;
+        n=n, 
+        min_occurences=min_occurences,
+        max_attempts=max_attempts,
+        verbosity = verbosity
+    )
     # Sample Outcomes
     for (outcome, (parents, file)) in sampler.outcomes_densities
         conditional_density_estimate = Simulations.sieve_neural_net_density_estimator(file)
@@ -126,3 +142,46 @@ function sample_from(sampler::DensityEstimateSampler, origin_dataset;
     end
     return sampled_dataset[!, sampler.variables_required_for_estimation]
 end
+
+function counterfactual_aggregate(Ψ, Q, X)
+    Ttemplate = TMLE.selectcols(X, TMLE.treatments(Ψ))
+    n = nrow(Ttemplate)
+    ctf_agg = zeros(n)
+    # Loop over Treatment settings
+    for (vals, sign) in TMLE.indicator_fns(Ψ)
+        # Counterfactual dataset for a given treatment setting
+        T_ct = TMLE.counterfactualTreatment(vals, Ttemplate)
+        X_ct = merge(X, T_ct)
+        # Counterfactual mean
+        ctf_agg .+= sign .* TMLE.expected_value(Q, X_ct)
+    end
+    return ctf_agg
+end
+
+function get_true_effect(sampler::DensityEstimateSampler, Ψ, sampled_dataset)
+    outcome_mean = TMLE.outcome_mean(Ψ)
+    parents, density_estimate_file = sampler.outcomes_densities[outcome_mean.outcome]
+    Q = Simulations.sieve_neural_net_density_estimator(density_estimate_file)
+    X = TMLE.selectcols(sampled_dataset, parents)
+    ctf_agg = counterfactual_aggregate(Ψ, Q, X)
+    return mean(ctf_agg)
+end
+
+get_true_effect(sampler::DensityEstimateSampler, Ψ::JointEstimand, dataset) =
+    [get_true_effect(sampler, Ψᵢ, dataset) for Ψᵢ ∈ Ψ.args]
+
+function get_true_effects(sampler::DensityEstimateSampler, estimands::AbstractVector, origin_dataset;
+    n=500_000, 
+    min_occurences=10,
+    max_attempts=10,
+    verbosity=0
+    )
+    sampled_dataset = sample_roots_and_treatments(sampler::DensityEstimateSampler, origin_dataset;
+        n=n, 
+        min_occurences=min_occurences,
+        max_attempts=max_attempts,
+        verbosity = verbosity
+    )
+    return Dict(Ψ => get_true_effect(sampler, Ψ, sampled_dataset) for Ψ ∈ estimands)
+end
+

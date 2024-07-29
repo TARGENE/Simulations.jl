@@ -22,6 +22,7 @@ using Serialization
 using CSV
 using TargeneCore
 using BGEN
+using LinearAlgebra
 
 include("utils.jl")
 
@@ -34,6 +35,7 @@ include(joinpath("samplers", "density_estimate_sampler.jl"))
 
 include(joinpath("realistic_simulation_inputs.jl"))
 include("estimation.jl")
+include("results_aggregation.jl")
 include("cli.jl")
 
 export NullSampler, DensityEstimateSampler
@@ -45,5 +47,6 @@ export density_estimation
 export density_estimation_inputs_from_gene_atlas
 export estimate_from_simulated_data
 export save_aggregated_df_results
+export get_true_effects
 
 end

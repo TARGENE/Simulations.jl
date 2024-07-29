@@ -55,3 +55,10 @@ function sample_from(sampler::NullSampler, origin_dataset;
     end
     return sampled_dataset
 end
+
+get_true_effect(sampler::NullSampler, Ψ) = 0
+
+get_true_effect(sampler::NullSampler, Ψ::JointEstimand) = [get_true_effect(sampler, Ψᵢ) for Ψᵢ in Ψ.args]
+
+get_true_effects(sampler::NullSampler, estimands::AbstractVector, origin_dataset; kwargs...) = 
+    Dict(Ψ => get_true_effect(sampler, Ψ) for Ψ ∈ estimands)

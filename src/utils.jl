@@ -221,37 +221,6 @@ function train_validation_split(X, y;
 end
 
 ########################################################################
-###                    Results Files Manipulation                    ###
-########################################################################
-
-
-function update_results_dict!(results_dict, estimator, sample_size, Ψ̂)
-    key = (estimator, Ψ̂.estimand, sample_size)
-    key_results = get!(results_dict, key, [])
-    push!(key_results, Ψ̂)
-end
-
-function save_aggregated_df_results(input_prefix, out)
-    results_dict = Dict()
-    for file in TargeneCore.files_matching_prefix(input_prefix)
-        jldopen(file) do io
-            estimators = io["estimators"]
-            file_results = io["results"]
-            sample_size = io["sample_size"]
-            for estimator in estimators
-                for Ψ̂ in file_results[!, estimator]
-                    update_results_dict!(results_dict, estimator, sample_size, Ψ̂)
-                end
-            end
-        end
-    end
-    results_pairs = collect(results_dict)
-    results_df = DataFrame(first.(results_pairs), [:ESTIMATOR, :ESTIMAND, :SAMPLE_SIZE])
-    results_df.ESTIMATES = last.(results_pairs)
-    jldsave(out, results=results_df)
-end
-
-########################################################################
 ###                    Estimand variables accessors                  ###
 ########################################################################
 

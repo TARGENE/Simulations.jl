@@ -7,6 +7,9 @@ using DataFrames
 using Random
 using Arrow
 using TMLE
+using MLJLinearModels
+using Distributions
+using LogExpFunctions
 
 TESTDIR = joinpath(pkgdir(Simulations), "test")
 @testset "Test DensityEstimateSampler" begin
@@ -86,6 +89,9 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
     @test size(sampled_dataset, 1) == 50
     @test sampled_dataset.T₁ isa CategoricalVector
     @test sampled_dataset.Ybin isa CategoricalVector
+    # True effects
+    Ψ₀ = get_true_effects(sampler, estimands, origin_dataset; n=10_000)
+    @test Ψ₀[estimands[1]] isa Float64
     ## Failing sampling
     msg = string(
         "Could not sample ŷ which wasn't too extreme after: ", 10, 
@@ -134,6 +140,36 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
     @test sampled_dataset.T₁ isa CategoricalVector
     @test sampled_dataset.T₂ isa CategoricalVector
     @test sampled_dataset.Ycont isa Vector{Float64}
+    # True effects
+    Ψ₀ = get_true_effects(sampler, estimands, origin_dataset; n=10_000)
+    @test Ψ₀[estimands[1]] isa Float64
+    @test Ψ₀[estimands[2]] isa Vector{Float64}
+    @test length(Ψ₀[estimands[2]]) == length(estimands[2].args)
+end
+
+@testset "Test counterfactual_aggregate" begin
+    # Make dataset
+    n = 10_000
+    W = Float64.(rand(Bernoulli(0.3), n))
+    T = Float64.(rand(Uniform(), n) .< logistic.(2W .+ 1))
+    Y = 0.3.*T .+ W .+ rand(Normal(), n)
+    dataset = DataFrame(W = W, T = T, Y = Y)
+    # Save outcome density and estimate
+    cde = TMLE.MLConditionalDistributionEstimator(LinearRegressor())(
+        TMLE.ConditionalDistribution(:Y, [:T, :W]),
+        dataset;
+        verbosity=0
+    )
+    # Check true effect is 0.6
+    Ψ = CM(
+        outcome = :Y,
+        treatment_values = (T = 1,),
+        treatment_confounders = [:W]
+    )
+    dataset.T = categorical(dataset.T)
+    X = TMLE.selectcols(dataset, cde.estimand.parents)
+    ctf_agg = Simulations.counterfactual_aggregate(Ψ, cde, X)   
+    @test 0.5 < mean(ctf_agg) < 0.7
 end
 
 end

@@ -17,50 +17,43 @@ function cli_settings()
         "realistic-simulation-inputs"
             action = :command
             help = "Generate realistic simulation inputs optionally using geneATLAS hits."
-
-        "analyse"
-            action = :command
-            help = "Run analyses script and generate plots."
-    end
-
-    @add_arg_table! s["analyse"] begin
-        "results-file"
-            arg_type = String
-            help = "Aggregated result file output by the `aggregate` command."
-        
-        "estimands-prefix"
-            arg_type = String
-            help = "Prefix to estimands files."
-
-        "--out-dir"
-            arg_type = String
-            default = "analysis_results"
-            help = "Output directory."
-        
-        "--n"
-            arg_type = Int
-            default = 500_000
-            help = "Number of samples used to compute the ground truth value of the estimands."
-        
-        "--dataset-file"
-            arg_type = String
-            help = "Dataset file to use to sample data and compute ground truth values (if --density_estimates_prefix is specified)."
-
-        "--density-estimates-prefix"
-            arg_type = String
-            help = string("If specified, a prefix to density estimates. ",
-                    "It is thus assumed that the results-file was generated using these densities. ", 
-                    "If left unspecified, the NullSampler is used and all effects are assumed to be 0.")
-
     end
 
     @add_arg_table! s["aggregate"] begin
-        "input-prefix"
+        "results-prefix"
             arg_type = String
-            help = "Prefix to all files to be aggregated."
+            help = "Prefix to all results files to be aggregated."
         "out"
             arg_type = String
             help = "Output path."
+
+        "--density-estimates-prefix"
+            arg_type = String
+            help = "Prefix to density estimates."
+        
+        "--dataset"
+            arg_type = String
+            help = "Dataset File."
+        
+        "--n"
+            arg_type = Int
+            help = "Number of samples used to estimate ground truth effects."
+            default = 500_000
+
+        "--min-occurences"
+            arg_type = Int
+            help = "Minimum number of occurences of a treatment variable."
+            default = 10
+        
+        "--max-attempts"
+            arg_type = Int
+            help = "Maximum number of sampling attempts."
+            default = 10
+        
+        "--verbosity"
+            arg_type = Int
+            help = "Verbosity level."
+            default = 0
     end
 
     @add_arg_table! s["estimation"] begin
@@ -258,7 +251,16 @@ function julia_main()::Cint
             chunksize=cmd_settings["chunksize"]
         )
     elseif cmd == "aggregate"
-        save_aggregated_df_results(cmd_settings["input-prefix"], cmd_settings["out"])
+        save_aggregated_df_results(
+            cmd_settings["results-prefix"], 
+            cmd_settings["out"],
+            cmd_settings["density-estimates-prefix"],
+            cmd_settings["dataset"];
+            n=cmd_settings["n"],
+            min_occurences=cmd_settings["min-occurences"],
+            max_attempts=cmd_settings["max-attempts"],
+            verbosity=cmd_settings["verbosity"]
+        )
     elseif cmd == "realistic-simulation-inputs"
         realistic_simulation_inputs(
             cmd_settings["estimands-prefix"],
@@ -294,15 +296,6 @@ function julia_main()::Cint
             output=cmd_settings["output"],
             train_ratio=cmd_settings["train-ratio"],
             verbosity=cmd_settings["verbosity"]
-        )
-    elseif cmd == "analyse"
-        analyse(
-            cmd_settings["results-file"],
-            cmd_settings["estimands-prefix"];
-            out_dir=cmd_settings["out-dir"],
-            n=cmd_settings["n"],
-            dataset_file=cmd_settings["dataset-file"],
-            density_estimates_prefix=cmd_settings["density-estimates-prefix"],
         )
     else
         throw(ArgumentError(string("No function matching command:", cmd)))

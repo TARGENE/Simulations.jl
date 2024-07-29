@@ -72,7 +72,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
     copy!(ARGS, [
         "aggregate",
         joinpath(outdir, "null_estimation_results_"),
-        results_file,
+        results_file, 
     ])
     Simulations.julia_main()
     jldopen(results_file) do io
@@ -81,7 +81,19 @@ include(joinpath(TESTDIR, "testutils.jl"))
         @test nrow(results) == 42
         @test Set(results.ESTIMATOR) == Set([:OSE_GLMNET, :wTMLE_GLMNET, :OSE_GLM_GLM])
         @test Set(results.SAMPLE_SIZE) == Set([100, 200])
-        @test all(length(x) == 4 for x in results.ESTIMATES) # 2 bootstraps per run * 2 random seeds
+        @test all(length(x) == 4 - nf for (x, nf) in zip(results.ESTIMATES, results.N_FAILED)) # 2 bootstraps per run * 2 random seeds
+        @test Set(names(results)) == Set([
+            "ESTIMATOR",
+            "ESTIMAND",
+            "SAMPLE_SIZE",
+            "ESTIMATES",
+            "N_FAILED",
+            "OUTCOME",
+            "TRUE_EFFECT",
+            "MEAN_COVERAGE",
+            "MEAN_BIAS",
+            "MEAN_VARIANCE"]
+        )
     end
 end
 
