@@ -23,6 +23,7 @@ using CSV
 using TargeneCore
 using BGEN
 using LinearAlgebra
+using SkipNan
 
 include("utils.jl")
 

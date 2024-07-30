@@ -32,16 +32,18 @@ add_mean_variance_col!(results_df) =
 ###                             COVERAGE                             ###
 ########################################################################
 
-covers(Ψ̂, Ψ₀; alpha=0.05) =
-    pvalue(significance_test(Ψ̂, Ψ₀)) > alpha
+function covers(Ψ̂, Ψ₀; alpha=0.05)
+    pval = pvalue_or_nan(Ψ̂, Ψ₀)
+    return pval === NaN ? NaN : pval > alpha
+end
 
-mean_coverage(estimates, Ψ₀) = mean(covers(Ψ̂, Ψ₀) for Ψ̂ in estimates)
+mean_coverage(estimates, Ψ₀) = mean(skipnan(covers(Ψ̂, Ψ₀) for Ψ̂ in estimates))
 
 add_mean_coverage_col!(results_df) = 
     results_df.MEAN_COVERAGE = [mean_coverage(Ψ̂s, Ψ₀) for (Ψ̂s, Ψ₀) in zip(results_df.ESTIMATES, results_df.TRUE_EFFECT)]
 
 ########################################################################
-###                             MISC                             ###
+###                              MISC                                ###
 ########################################################################
 
 function add_n_failed!(results_df)
