@@ -37,10 +37,10 @@ function covers(Ψ̂, Ψ₀; alpha=0.05)
     return pval === NaN ? NaN : pval > alpha
 end
 
-"""
-The `collect` function is used so that this function returns NaN if all coverage measures are NaNs
-"""
-mean_coverage(estimates, Ψ₀) = mean(collect(skipnan(covers(Ψ̂, Ψ₀) for Ψ̂ in estimates)))
+function mean_coverage(estimates, Ψ₀)
+    coverage = filter(!isnan, [covers(Ψ̂, Ψ₀) for Ψ̂ in estimates])
+    return isempty(coverage) ? NaN : mean(coverage)
+end
 
 add_mean_coverage_col!(results_df) = 
     results_df.MEAN_COVERAGE = [mean_coverage(Ψ̂s, Ψ₀) for (Ψ̂s, Ψ₀) in zip(results_df.ESTIMATES, results_df.TRUE_EFFECT)]
