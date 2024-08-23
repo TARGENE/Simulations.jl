@@ -47,7 +47,7 @@ function density_estimation(
     verbosity=1
     )
     outcome, parents = read_density_variables(density_file)
-    dataset = TargetedEstimation.instantiate_dataset(dataset_file)
+    dataset = TmleCLI.instantiate_dataset(dataset_file)
     coerce_parents_and_outcome!(dataset, parents, outcome=outcome)
 
     X, y = X_y(dataset, parents, outcome)

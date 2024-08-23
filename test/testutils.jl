@@ -82,16 +82,16 @@ function linear_interaction_dataset_ATEs()
     ])
 end
 
-function linear_interaction_dataset_IATEs()
+function linear_interaction_dataset_AIEs()
     return TMLE.Configuration(
         estimands = [
-        IATE(
+        AIE(
             outcome=:Ycont,
             treatment_values = (T₁ = (case=1, control=0), T₂ = (case=1, control=0)),
             treatment_confounders = (:W,),
             outcome_extra_covariates = (:C,)
         ),
-        IATE(
+        AIE(
             outcome=:Ybin,
             treatment_values = (T₁ = (case=1, control=0), T₂ = (case=1, control=0)),
             treatment_confounders = (:W,),
@@ -101,7 +101,7 @@ function linear_interaction_dataset_IATEs()
 end
 
 function write_linear_interaction_dataset_estimands()
-    serialize("test/assets/estimands/estimands_iates.jls", linear_interaction_dataset_IATEs())
+    serialize("test/assets/estimands/estimands_iates.jls", linear_interaction_dataset_AIEs())
     serialize("test/assets/estimands/estimands_ates.jls", linear_interaction_dataset_ATEs())
 end
 

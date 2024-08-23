@@ -2,7 +2,7 @@ module Simulations
 
 using Distributions
 using Random
-using TargetedEstimation
+using TmleCLI
 using DataFrames
 using Flux
 using MLJBase
@@ -23,7 +23,6 @@ using CSV
 using TargeneCore
 using BGEN
 using LinearAlgebra
-using SkipNan
 
 include("utils.jl")
 

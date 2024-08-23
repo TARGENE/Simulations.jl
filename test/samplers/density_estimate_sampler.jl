@@ -107,7 +107,7 @@ TESTDIR = joinpath(pkgdir(Simulations), "test")
         treatment_confounders=(:W,),
         ),
         factorialEstimand(
-            IATE,
+            AIE,
             (T₁=[0, 1], T₂=[0, 1]),
             :Ycont,
             confounders=(:W,),

@@ -29,11 +29,11 @@ function gene_atlas_estimands()
             confounders=[:PC1, :PC2, :PC3], 
             outcome_extra_covariates=["Genetic-Sex", "Age-Assessment"]
         ),
-        factorialEstimand(IATE, (rs502771=["TT", "TC", "CC"], rs184270108=["CC", "CT", "TT"],), "sarcoidosis";
+        factorialEstimand(AIE, (rs502771=["TT", "TC", "CC"], rs184270108=["CC", "CT", "TT"],), "sarcoidosis";
             confounders=[:PC1, :PC2, :PC3], 
             outcome_extra_covariates=["Genetic-Sex", "Age-Assessment"]
         ),
-        factorialEstimand(IATE, (rs11868112=["CC", "CT", "TT"], rs6456121=["CC", "CT", "TT"], rs356219=["GG", "GA", "AA"]), "G20 Parkinson's disease";
+        factorialEstimand(AIE, (rs11868112=["CC", "CT", "TT"], rs6456121=["CC", "CT", "TT"], rs356219=["GG", "GA", "AA"]), "G20 Parkinson's disease";
             confounders=[:PC1, :PC2, :PC3], 
             outcome_extra_covariates=["Genetic-Sex", "Age-Assessment"]
         ),
@@ -147,8 +147,8 @@ end
     @test length(output_estimands) == 7
     # Check estimands have been matched to the dataset: GA -> AG
     Ψ = output_estimands[findfirst(x->x isa JointEstimand, output_estimands)]
-    @test Ψ.args[1].treatment_values.RSID_198 == "AG"
-    @test Ψ.args[2].treatment_values.RSID_198 == "AG"
+    @test Ψ.args[1].treatment_values[:RSID_198] == "AG"
+    @test Ψ.args[2].treatment_values[:RSID_198] == "AG"
 end
 
 @testset "Test realistic_simulation_inputs: sample_gene_atlas_hits=true" begin

@@ -21,13 +21,13 @@ function read_bgen_chromosome(bgen_prefix, chr)
 end
 
 function coerce_parents_and_outcome!(dataset, parents; outcome=nothing)
-    TargetedEstimation.coerce_types!(dataset, parents)
+    TmleCLI.coerce_types!(dataset, parents)
     if outcome !== nothing
         # Continuous and Counts except Binary outcomes are treated as continuous
-        if elscitype(dataset[!, outcome]) <: Union{Infinite, Missing} && !(TargetedEstimation.isbinary(outcome, dataset))
-            TargetedEstimation.coerce_types!(dataset, [outcome], rules=:discrete_to_continuous)
+        if elscitype(dataset[!, outcome]) <: Union{Infinite, Missing} && !(TmleCLI.isbinary(outcome, dataset))
+            TmleCLI.coerce_types!(dataset, [outcome], rules=:discrete_to_continuous)
         else
-            TargetedEstimation.coerce_types!(dataset, [outcome], rules=:few_to_finite)
+            TmleCLI.coerce_types!(dataset, [outcome], rules=:few_to_finite)
         end
     end
 end
@@ -174,7 +174,7 @@ function compute_statistics(dataset, Ψ::TMLE.Estimand)
     outcome = get_outcome(Ψ)
     treatments = get_treatments(Ψ)
     nomissing_dataset = dropmissing(dataset, [outcome, treatments..., confounders_and_covariates_set(Ψ)...])
-    categorical_variables = TargetedEstimation.isbinary(outcome, nomissing_dataset) ? (outcome, treatments...) : treatments
+    categorical_variables = TmleCLI.isbinary(outcome, nomissing_dataset) ? (outcome, treatments...) : treatments
 
     statistics = Dict()
     # Each Variable
@@ -228,7 +228,7 @@ function confounders_and_covariates_set(Ψ)
     confounders_and_covariates = Set{Symbol}([])
     push!(
         confounders_and_covariates, 
-        Iterators.flatten(Ψ.treatment_confounders)..., 
+        Iterators.flatten(values(Ψ.treatment_confounders))..., 
         Ψ.outcome_extra_covariates...
     )
     return confounders_and_covariates

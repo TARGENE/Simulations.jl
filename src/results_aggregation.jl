@@ -50,7 +50,7 @@ add_mean_coverage_col!(results_df) =
 ########################################################################
 
 function add_n_failed!(results_df)
-    non_failed_estimates = [filter(x -> !(x isa TargetedEstimation.FailedEstimate), estimates) for estimates in results_df.ESTIMATES]
+    non_failed_estimates = [filter(x -> !(x isa TmleCLI.FailedEstimate), estimates) for estimates in results_df.ESTIMATES]
     n_failed = [length(all) - length(non_failed) for (all, non_failed) ∈ zip(results_df.ESTIMATES, non_failed_estimates)]
     results_df.ESTIMATES = non_failed_estimates
     results_df.N_FAILED = n_failed
@@ -61,7 +61,7 @@ function add_outcome_col!(results_df)
 end
 
 function add_true_effect_col!(results_df, density_estimates_prefix, dataset_file; kwargs...)
-    origin_dataset = dataset_file !== nothing ? TargetedEstimation.instantiate_dataset(dataset_file) : nothing
+    origin_dataset = dataset_file !== nothing ? TmleCLI.instantiate_dataset(dataset_file) : nothing
     estimands = unique(results_df.ESTIMAND)
     sampler = get_sampler(density_estimates_prefix, estimands)
     true_effects = get_true_effects(sampler, estimands, origin_dataset; kwargs...)

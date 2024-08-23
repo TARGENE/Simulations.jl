@@ -279,7 +279,7 @@ end
 function read_and_validate_estimands(estimands_prefix)
     estimands = reduce(
         vcat, 
-        TargetedEstimation.read_estimands_config(f).estimands for f ∈ TargeneCore.files_matching_prefix(estimands_prefix)
+        TmleCLI.read_estimands_config(f).estimands for f ∈ TargeneCore.files_matching_prefix(estimands_prefix)
     )
     check_only_one_set_of_confounders_per_treatment(estimands)
     return estimands
@@ -370,7 +370,7 @@ function realistic_simulation_inputs(
     estimands = read_and_validate_estimands(estimands_prefix)
     # Read traits and PCA data
     traits = TargeneCore.read_csv_file(traits_file)
-    pcs = TargeneCore.read_csv_file(pcs_file)
+    pcs = TargeneCore.load_flash_pca_results(pcs_file)
     # Get variables
     variables = TargeneCore.get_variables(estimands, traits, pcs)
     traits_to_variants = initialize_trait_to_variants(estimands, variables)

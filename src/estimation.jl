@@ -19,10 +19,10 @@ function estimate_from_simulated_data(
     )
     rng = Random.default_rng()
     Random.seed!(rng, rng_seed)
-    origin_dataset = TargetedEstimation.instantiate_dataset(origin_dataset)
+    origin_dataset = TmleCLI.instantiate_dataset(origin_dataset)
     sample_size = sample_size !== nothing ? sample_size : nrow(origin_dataset)
-    estimands = TargetedEstimation.instantiate_estimands(estimands_config, origin_dataset)
-    estimators_spec = TargetedEstimation.instantiate_estimators(estimators_config, estimands)
+    estimands = TmleCLI.instantiate_estimands(estimands_config, origin_dataset)
+    estimators_spec = TmleCLI.instantiate_estimators(estimators_config, estimands)
     sampler = get_sampler(sampler_config, estimands)
     results = []
     statistics = []
