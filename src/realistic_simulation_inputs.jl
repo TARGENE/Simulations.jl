@@ -279,7 +279,7 @@ end
 function read_and_validate_estimands(estimands_prefix)
     estimands = reduce(
         vcat, 
-        TmleCLI.read_estimands_config(f).estimands for f ∈ TargeneCore.files_matching_prefix(estimands_prefix)
+        TMLECLI.read_estimands_config(f).estimands for f ∈ TargeneCore.files_matching_prefix(estimands_prefix)
     )
     check_only_one_set_of_confounders_per_treatment(estimands)
     return estimands

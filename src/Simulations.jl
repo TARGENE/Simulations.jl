@@ -2,7 +2,7 @@ module Simulations
 
 using Distributions
 using Random
-using TmleCLI
+using TMLECLI
 using DataFrames
 using Flux
 using MLJBase

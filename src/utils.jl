@@ -21,13 +21,13 @@ function read_bgen_chromosome(bgen_prefix, chr)
 end
 
 function coerce_parents_and_outcome!(dataset, parents; outcome=nothing)
-    TmleCLI.coerce_types!(dataset, parents)
+    TMLECLI.coerce_types!(dataset, parents)
     if outcome !== nothing
         # Continuous and Counts except Binary outcomes are treated as continuous
-        if elscitype(dataset[!, outcome]) <: Union{Infinite, Missing} && !(TmleCLI.isbinary(outcome, dataset))
-            TmleCLI.coerce_types!(dataset, [outcome], rules=:discrete_to_continuous)
+        if elscitype(dataset[!, outcome]) <: Union{Infinite, Missing} && !(TMLECLI.isbinary(outcome, dataset))
+            TMLECLI.coerce_types!(dataset, [outcome], rules=:discrete_to_continuous)
         else
-            TmleCLI.coerce_types!(dataset, [outcome], rules=:few_to_finite)
+            TMLECLI.coerce_types!(dataset, [outcome], rules=:few_to_finite)
         end
     end
 end
@@ -174,7 +174,7 @@ function compute_statistics(dataset, Ψ::TMLE.Estimand)
     outcome = get_outcome(Ψ)
     treatments = get_treatments(Ψ)
     nomissing_dataset = dropmissing(dataset, [outcome, treatments..., confounders_and_covariates_set(Ψ)...])
-    categorical_variables = TmleCLI.isbinary(outcome, nomissing_dataset) ? (outcome, treatments...) : treatments
+    categorical_variables = TMLECLI.isbinary(outcome, nomissing_dataset) ? (outcome, treatments...) : treatments
 
     statistics = Dict()
     # Each Variable
