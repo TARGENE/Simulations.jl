@@ -50,22 +50,20 @@ function linear_interaction_dataset(n=100)
 end
 
 function linear_interaction_dataset_ATEs()
-    composedATE = ComposedEstimand(
-        TMLE.joint_estimand,
-        (
-            ATE(
-                outcome=:Ybin,
-                treatment_values = (T₁ = (case=1, control=0), T₂ = (case=1, control=0)),
-                treatment_confounders = (:W,),
-                outcome_extra_covariates = (:C,)
-            ),
-            ATE(
-                outcome=:Ybin,
-                treatment_values = (T₁ = (case=0, control=1), T₂ = (case=0, control=1)),
-                treatment_confounders = (:W,),
-                outcome_extra_covariates = (:C,)
-            )
+    composedATE = JointEstimand(
+        ATE(
+            outcome=:Ybin,
+            treatment_values = (T₁ = (case=1, control=0), T₂ = (case=1, control=0)),
+            treatment_confounders = (:W,),
+            outcome_extra_covariates = (:C,)
+        ),
+        ATE(
+            outcome=:Ybin,
+            treatment_values = (T₁ = (case=0, control=1), T₂ = (case=0, control=1)),
+            treatment_confounders = (:W,),
+            outcome_extra_covariates = (:C,)
         )
+    
     )
     return TMLE.Configuration(
         estimands = [
@@ -84,16 +82,16 @@ function linear_interaction_dataset_ATEs()
     ])
 end
 
-function linear_interaction_dataset_IATEs()
+function linear_interaction_dataset_AIEs()
     return TMLE.Configuration(
         estimands = [
-        IATE(
+        AIE(
             outcome=:Ycont,
             treatment_values = (T₁ = (case=1, control=0), T₂ = (case=1, control=0)),
             treatment_confounders = (:W,),
             outcome_extra_covariates = (:C,)
         ),
-        IATE(
+        AIE(
             outcome=:Ybin,
             treatment_values = (T₁ = (case=1, control=0), T₂ = (case=1, control=0)),
             treatment_confounders = (:W,),
@@ -103,54 +101,36 @@ function linear_interaction_dataset_IATEs()
 end
 
 function write_linear_interaction_dataset_estimands()
-    serialize("test/assets/estimands/estimands_iates.jls", linear_interaction_dataset_IATEs())
+    serialize("test/assets/estimands/estimands_iates.jls", linear_interaction_dataset_AIEs())
     serialize("test/assets/estimands/estimands_ates.jls", linear_interaction_dataset_ATEs())
 end
 
 function estimands_and_traits_to_variants_matching_bgen()
     estimands = [
-        IATE(
-            outcome = "BINARY_1",
-            treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)),
-            treatment_confounders = (RSID_2 = [], TREAT_1 = [])
-        ),
         ATE(
-            outcome = "BINARY_2",
-            treatment_values = (RSID_2 = (case = "AA", control = "GG"),),
-            treatment_confounders = (RSID_2 = [22001], ),
-            outcome_extra_covariates = ["COV_1", 21003]
-        ),
-        CM(
-            outcome = "CONTINUOUS_2",
-            treatment_values = (RSID_2 = "AA", ),
-            treatment_confounders = (RSID_2 = [22001],),
-            outcome_extra_covariates = ["COV_1", 21003]
-        ),
-        ATE(
-            outcome = "CONTINUOUS_2",
-            treatment_values = (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "GA", control = "AA")),
-            treatment_confounders = (RSID_2 = [], RSID_198 = []),
+            outcome = "ALL",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1=(case=1, control=0)),
+            treatment_confounders = (RSID_2 = [], TREAT_1= []),
             outcome_extra_covariates = [22001]
         ),
-        ComposedEstimand(
-            TMLE.joint_estimand, (
-                CM(
+        JointEstimand(
+            CM(
                 outcome = "BINARY_1",
                 treatment_values = (RSID_2 = "GG", RSID_198 = "GA"),
                 treatment_confounders = (RSID_2 = [], RSID_198 = []),
                 outcome_extra_covariates = [22001]
             ),
-                CM(
+            CM(
                 outcome = "BINARY_1",
                 treatment_values = (RSID_2 = "AA", RSID_198 = "GA"),
                 treatment_confounders = (RSID_2 = [], RSID_198 = []),
                 outcome_extra_covariates = [22001]
-            ))
+            )
         )
     ]
     traits_to_variants = Dict(
         "BINARY_1" => ["RSID_2", "RSID_198"],
-        "CONTINUOUS_2" => ["RSID_2", "RSID_198"],
+        "CONTINUOUS_2" => ["RSID_2",],
         "BINARY_2" => ["RSID_2"],
         )
     return estimands, traits_to_variants

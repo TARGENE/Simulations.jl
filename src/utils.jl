@@ -15,19 +15,19 @@ get_bgen_chromosome(bgen_files, chr) = only(filter(
     ))
 
 function read_bgen_chromosome(bgen_prefix, chr)
-    bgen_files = files_matching_prefix(bgen_prefix)
+    bgen_files = TargeneCore.files_matching_prefix(bgen_prefix)
     bgen_file = get_bgen_chromosome(bgen_files, chr)
     return TargeneCore.read_bgen(bgen_file)
 end
 
 function coerce_parents_and_outcome!(dataset, parents; outcome=nothing)
-    TargetedEstimation.coerce_types!(dataset, parents)
+    TMLECLI.coerce_types!(dataset, parents)
     if outcome !== nothing
         # Continuous and Counts except Binary outcomes are treated as continuous
-        if elscitype(dataset[!, outcome]) <: Union{Infinite, Missing} && !(TargetedEstimation.isbinary(outcome, dataset))
-            TargetedEstimation.coerce_types!(dataset, [outcome], rules=:discrete_to_continuous)
+        if elscitype(dataset[!, outcome]) <: Union{Infinite, Missing} && !(TMLECLI.isbinary(outcome, dataset))
+            TMLECLI.coerce_types!(dataset, [outcome], rules=:discrete_to_continuous)
         else
-            TargetedEstimation.coerce_types!(dataset, [outcome], rules=:few_to_finite)
+            TMLECLI.coerce_types!(dataset, [outcome], rules=:few_to_finite)
         end
     end
 end
@@ -174,7 +174,7 @@ function compute_statistics(dataset, Ψ::TMLE.Estimand)
     outcome = get_outcome(Ψ)
     treatments = get_treatments(Ψ)
     nomissing_dataset = dropmissing(dataset, [outcome, treatments..., confounders_and_covariates_set(Ψ)...])
-    categorical_variables = TargetedEstimation.isbinary(outcome, nomissing_dataset) ? (outcome, treatments...) : treatments
+    categorical_variables = TMLECLI.isbinary(outcome, nomissing_dataset) ? (outcome, treatments...) : treatments
 
     statistics = Dict()
     # Each Variable
@@ -221,132 +221,18 @@ function train_validation_split(X, y;
 end
 
 ########################################################################
-###                    Results Files Manipulation                    ###
-########################################################################
-
-function files_matching_prefix(prefix)
-    directory, _prefix = splitdir(prefix)
-    _directory = directory == "" ? "." : directory
-
-    return map(
-        f -> joinpath(directory, f),
-        filter(
-            f -> startswith(f, _prefix), 
-            readdir(_directory)
-        )
-    )
-end
-
-function read_results_file(file)
-    jldopen(file) do io
-        return reduce(vcat, (io[key] for key in keys(io)))
-    end
-end
-
-repeat_filename(outdir, repeat) = joinpath(outdir, string("output_", repeat, ".hdf5"))
-
-function read_results_dir(outdir)
-    results = []
-    for filename in readdir(outdir, join=true)
-        repeat_id = parse(Int, split(replace(filename, ".hdf5" => ""), "_")[end])
-        fileresults = read_results_file(filename)
-        fileresults = [merge(result, (REPEAT_ID=repeat_id,)) for result in fileresults]
-        append!(results, fileresults)
-    end
-    
-    return DataFrame(results)
-end
-
-function save_aggregated_df_results(input_prefix, out)
-    dir = dirname(input_prefix)
-    dir = dir !== "" ? dir : "."
-    baseprefix = basename(input_prefix)
-    results_dict = Dict()
-    for file in readdir(dir)
-        if startswith(file, baseprefix)
-            io = jldopen(joinpath(dir, file))
-            estimators = io["estimators"]
-            results = io["results"]
-            sample_size = io["sample_size"]
-            if haskey(results_dict, estimators)
-                estimators_dict = results_dict[estimators]
-                if haskey(estimators_dict, sample_size)
-                    estimators_dict[sample_size] = vcat(estimators_dict[sample_size], results)
-                else
-                    estimators_dict[sample_size] = results
-                end
-            else
-                results_dict[estimators] = Dict(sample_size => results)
-            end
-            close(io)
-        end
-    end
-    jldsave(out, results=results_dict)
-end
-
-########################################################################
 ###                    Estimand variables accessors                  ###
 ########################################################################
-
-function get_confounders_assert_equal(Ψ::TMLE.Estimand)
-    treatment_confounders = values(Ψ.treatment_confounders)
-    @assert allequal(treatment_confounders)
-    return first(treatment_confounders)
-end
-
-function get_confounders_assert_equal(Ψ::TMLE.ComposedEstimand)
-    args_confounders = [get_confounders_assert_equal(arg) for arg ∈ Ψ.args]
-    @assert allequal(args_confounders)
-    return first(args_confounders)
-end
-
-function get_confounders_assert_equal(estimands)
-    estimands_confounders = [get_confounders_assert_equal(Ψ) for Ψ ∈ estimands]
-    @assert allequal(estimands_confounders)
-    return first(estimands_confounders)
-end
-
-get_covariates_assert_equal(Ψ::TMLE.Estimand) = Ψ.outcome_extra_covariates
-
-function get_covariates_assert_equal(Ψ::TMLE.ComposedEstimand)
-    args_covariates = [get_covariates_assert_equal(arg) for arg ∈ Ψ.args]
-    @assert allequal(args_covariates)
-    return first(args_covariates)
-end
-
-function get_covariates_assert_equal(estimands)
-    estimands_covariates = [get_covariates_assert_equal(Ψ) for Ψ ∈ estimands]
-    @assert allequal(estimands_covariates)
-    return first(estimands_covariates)
-end
 
 function confounders_and_covariates_set(Ψ)
     confounders_and_covariates = Set{Symbol}([])
     push!(
         confounders_and_covariates, 
-        Iterators.flatten(Ψ.treatment_confounders)..., 
+        Iterators.flatten(values(Ψ.treatment_confounders))..., 
         Ψ.outcome_extra_covariates...
     )
     return confounders_and_covariates
 end
 
-confounders_and_covariates_set(Ψ::ComposedEstimand) = 
+confounders_and_covariates_set(Ψ::JointEstimand) = 
     union((confounders_and_covariates_set(arg) for arg in Ψ.args)...)
-
-get_outcome(Ψ) = Ψ.outcome
-
-function get_outcome(Ψ::ComposedEstimand)
-    @assert Ψ.f == TMLE.joint_estimand "Only joint estimands can be processed at the moment."
-    outcome = get_outcome(first(Ψ.args))
-    @assert all(get_outcome(x) == outcome for x in Ψ.args)
-    return outcome
-end
-
-get_treatments(Ψ) = keys(Ψ.treatment_values)
-
-function get_treatments(Ψ::ComposedEstimand) 
-    @assert Ψ.f == TMLE.joint_estimand "Only joint estimands can be processed at the moment."
-    treatments = get_treatments(first(Ψ.args))
-    @assert all(get_treatments(x) == treatments for x in Ψ.args)
-    return treatments
-end

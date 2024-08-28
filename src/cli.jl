@@ -14,53 +14,46 @@ function cli_settings()
             action = :command
             help = "Estimate a conditional density."
         
-        "simulation-inputs-from-ga"
+        "realistic-simulation-inputs"
             action = :command
-            help = "Generate simulation inputs from geneATLAS."
-
-        "analyse"
-            action = :command
-            help = "Run analyses script and generate plots."
-    end
-
-    @add_arg_table! s["analyse"] begin
-        "results-file"
-            arg_type = String
-            help = "Aggregated result file output by the `aggregate` command."
-        
-        "estimands-prefix"
-            arg_type = String
-            help = "Prefix to estimands files."
-
-        "--out-dir"
-            arg_type = String
-            default = "analysis_results"
-            help = "Output directory."
-        
-        "--n"
-            arg_type = Int
-            default = 500_000
-            help = "Number of samples used to compute the ground truth value of the estimands."
-        
-        "--dataset-file"
-            arg_type = String
-            help = "Dataset file to use to sample data and compute ground truth values (if --density_estimates_prefix is specified)."
-
-        "--density-estimates-prefix"
-            arg_type = String
-            help = string("If specified, a prefix to density estimates. ",
-                    "It is thus assumed that the results-file was generated using these densities. ", 
-                    "If left unspecified, the NullSampler is used and all effects are assumed to be 0.")
-
+            help = "Generate realistic simulation inputs optionally using geneATLAS hits."
     end
 
     @add_arg_table! s["aggregate"] begin
-        "input-prefix"
+        "results-prefix"
             arg_type = String
-            help = "Prefix to all files to be aggregated."
+            help = "Prefix to all results files to be aggregated."
         "out"
             arg_type = String
             help = "Output path."
+
+        "--density-estimates-prefix"
+            arg_type = String
+            help = "Prefix to density estimates."
+        
+        "--dataset"
+            arg_type = String
+            help = "Dataset File."
+        
+        "--n"
+            arg_type = Int
+            help = "Number of samples used to estimate ground truth effects."
+            default = 500_000
+
+        "--min-occurences"
+            arg_type = Int
+            help = "Minimum number of occurences of a treatment variable."
+            default = 10
+        
+        "--max-attempts"
+            arg_type = Int
+            help = "Maximum number of sampling attempts."
+            default = 10
+        
+        "--verbosity"
+            arg_type = Int
+            help = "Verbosity level."
+            default = 0
     end
 
     @add_arg_table! s["estimation"] begin
@@ -119,11 +112,6 @@ function cli_settings()
             arg_type = Int
             help = "Random seed (Only used for estimands ordering at the moment)."
             default = 123
-        
-        "--workdir"
-            arg_type = String
-            help = "Working directory"
-            default = mktempdir()
     end
 
     @add_arg_table! s["density-estimation"] begin
@@ -154,10 +142,9 @@ function cli_settings()
             arg_type = Int
             default = 0
             help = "Verbosity level."
-
     end
 
-    @add_arg_table! s["simulation-inputs-from-ga"] begin
+    @add_arg_table! s["realistic-simulation-inputs"] begin
         "estimands-prefix"
             arg_type = String
             help = "A prefix to serialized TMLE.Configuration (accepted formats: .json | .yaml | .jls)"
@@ -173,6 +160,11 @@ function cli_settings()
         "pcs"
             arg_type = String
             help = "The dataset of principal components."
+        
+        "--sample-gene-atlas-hits"
+            arg_type = Bool
+            default = true
+            help = "Whether to sample additional variants from the geneATLAS."
 
         "--ga-download-dir"
             arg_type = String
@@ -233,7 +225,6 @@ function cli_settings()
             arg_type = Int
             default = 10
             help = "Estimands are further split in files of `batchsize`"
-            
     end
 
     return s
@@ -257,17 +248,26 @@ function julia_main()::Cint
             min_occurences=cmd_settings["min-occurences"],
             verbosity=cmd_settings["verbosity"],
             rng_seed=cmd_settings["rng"], 
-            chunksize=cmd_settings["chunksize"],
-            workdir=cmd_settings["workdir"]
-            )
+            chunksize=cmd_settings["chunksize"]
+        )
     elseif cmd == "aggregate"
-        save_aggregated_df_results(cmd_settings["input-prefix"], cmd_settings["out"])
-    elseif cmd == "simulation-inputs-from-ga"
-        simulation_inputs_from_gene_atlas(
+        save_aggregated_df_results(
+            cmd_settings["results-prefix"], 
+            cmd_settings["out"],
+            cmd_settings["density-estimates-prefix"],
+            cmd_settings["dataset"];
+            n=cmd_settings["n"],
+            min_occurences=cmd_settings["min-occurences"],
+            max_attempts=cmd_settings["max-attempts"],
+            verbosity=cmd_settings["verbosity"]
+        )
+    elseif cmd == "realistic-simulation-inputs"
+        realistic_simulation_inputs(
             cmd_settings["estimands-prefix"],
             cmd_settings["bgen-prefix"],
             cmd_settings["traits"],
             cmd_settings["pcs"];
+            sample_gene_atlas_hits=cmd_settings["sample-gene-atlas-hits"],
             gene_atlas_dir=cmd_settings["ga-download-dir"],
             remove_ga_data=cmd_settings["remove-ga-data"], 
             trait_table_path=cmd_settings["ga-trait-table"],
@@ -297,15 +297,8 @@ function julia_main()::Cint
             train_ratio=cmd_settings["train-ratio"],
             verbosity=cmd_settings["verbosity"]
         )
-    elseif cmd == "analyse"
-        analyse(
-            cmd_settings["results-file"],
-            cmd_settings["estimands-prefix"];
-            out_dir=cmd_settings["out-dir"],
-            n=cmd_settings["n"],
-            dataset_file=cmd_settings["dataset-file"],
-            density_estimates_prefix=cmd_settings["density-estimates-prefix"],
-        )
+    else
+        throw(ArgumentError(string("No function matching command:", cmd)))
     end
 
     return 0

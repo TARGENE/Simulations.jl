@@ -36,6 +36,10 @@ include(joinpath(TESTDIR, "testutils.jl"))
         p_origin_T = sort(combine(groupby(origin_dataset, T), proprow), :proprow)
         @test p_sampled_T[!, T] == p_origin_T[!, T]
     end
+    # True Effect is zero
+    true_effects = get_true_effects(sampler, estimands, origin_dataset)
+    @test true_effects[estimands[2]] == true_effects[estimands[1]] == 0
+    @test true_effects[estimands[3]] == [0, 0]
     # Raise if min_occurences not statisfied
     msg = string(
         "Could not sample a dataset which wasn't too extreme after: 1 attempts. Possible solutions: increase `sample_size`, change your simulation estimands of increase `max_attempts`."
@@ -52,7 +56,6 @@ include(joinpath(TESTDIR, "testutils.jl"))
             outcome_extra_covariates = ()
     ))
     @test_throws AssertionError("All estimands should share the same confounders and covariates.") NullSampler(estimands)
-
 end
 
 end
