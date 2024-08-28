@@ -312,9 +312,9 @@ version = "1.1.0"
 
 [[deps.CairoMakie]]
 deps = ["CRC32c", "Cairo", "Cairo_jll", "Colors", "FileIO", "FreeType", "GeometryBasics", "LinearAlgebra", "Makie", "PrecompileTools"]
-git-tree-sha1 = "57b139fd3cffdb82b7cc5756e9916ff68b88a690"
+git-tree-sha1 = "361dec06290d76b6d70d0c7dc888038eec9df63a"
 uuid = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-version = "0.12.7"
+version = "0.12.9"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
@@ -694,9 +694,9 @@ uuid = "55351af7-c7e9-48d6-89ff-24e801d99491"
 version = "0.10.13"
 
 [[deps.Extents]]
-git-tree-sha1 = "94997910aca72897524d2237c41eb852153b0f65"
+git-tree-sha1 = "81023caa0021a41712685887db1fc03db26f41f5"
 uuid = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
-version = "0.1.3"
+version = "0.1.4"
 
 [[deps.FFMPEG_jll]]
 deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
@@ -1526,15 +1526,15 @@ version = "0.5.13"
 
 [[deps.Makie]]
 deps = ["Animations", "Base64", "CRC32c", "ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "Dates", "DelaunayTriangulation", "Distributions", "DocStringExtensions", "Downloads", "FFMPEG_jll", "FileIO", "FilePaths", "FixedPointNumbers", "Format", "FreeType", "FreeTypeAbstraction", "GeometryBasics", "GridLayoutBase", "ImageIO", "InteractiveUtils", "IntervalSets", "Isoband", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "MacroTools", "MakieCore", "Markdown", "MathTeXEngine", "Observables", "OffsetArrays", "Packing", "PlotUtils", "PolygonOps", "PrecompileTools", "Printf", "REPL", "Random", "RelocatableFolders", "Scratch", "ShaderAbstractions", "Showoff", "SignedDistanceFields", "SparseArrays", "Statistics", "StatsBase", "StatsFuns", "StructArrays", "TriplotBase", "UnicodeFun", "Unitful"]
-git-tree-sha1 = "05b01e6cae68aa40f9a64339c54aba2572cce7a7"
+git-tree-sha1 = "204f06860af9008fa08b3a4842f48116e1209a2c"
 uuid = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-version = "0.21.7"
+version = "0.21.9"
 
 [[deps.MakieCore]]
 deps = ["ColorTypes", "GeometryBasics", "IntervalSets", "Observables"]
-git-tree-sha1 = "1753d72dcf82beb1c582826d0a51a8253a719613"
+git-tree-sha1 = "b0e2e3473af351011e598f9219afb521121edd2b"
 uuid = "20f20a25-4f0e-4fdf-b5d1-57303727442b"
-version = "0.8.5"
+version = "0.8.6"
 
 [[deps.ManualMemory]]
 git-tree-sha1 = "bcaef4fc7a0cfe2cba636d84cda54b5e4e4ca3cd"
@@ -2336,11 +2336,9 @@ weakdeps = ["JSON", "YAML"]
 
 [[deps.TMLECLI]]
 deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "JLD2", "JSON", "MKL", "MLJ", "MLJBase", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "Mmap", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
-git-tree-sha1 = "a1c0da8a3b98ff41b666c1e7bbd0b7d6bba398ae"
-repo-rev = "main"
-repo-url = "https://github.com/TARGENE/TMLECLI.jl"
+git-tree-sha1 = "eb8a7aa2a17c0dd2fb165dd79a860c1aea0df55a"
 uuid = "2573d147-4098-46ba-9db2-8608d210ccac"
-version = "0.9.0"
+version = "0.9.1"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -2378,11 +2376,11 @@ version = "1.10.0"
 
 [[deps.TargeneCore]]
 deps = ["ArgParse", "Arrow", "BGEN", "CSV", "CairoMakie", "CategoricalArrays", "Combinatorics", "DataFrames", "Distributions", "HypothesisTests", "JLD2", "PackageCompiler", "Random", "Serialization", "SnpArrays", "StableRNGs", "Statistics", "TMLE", "TMLECLI", "YAML"]
-git-tree-sha1 = "8f750a3b4172653fb973737de9209404d2ce5d79"
-repo-rev = "loco-gwas"
+git-tree-sha1 = "73699459340c54c18633fad5f77d5c0a5ac676f3"
+repo-rev = "v0.9.0"
 repo-url = "https://github.com/TARGENE/TargeneCore.jl"
 uuid = "3aa9512e-41c2-4133-bfaa-ba71048dd391"
-version = "0.7.0"
+version = "0.9.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
