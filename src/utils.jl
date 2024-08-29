@@ -79,70 +79,116 @@ confounders_and_covariates(variables) = vcat(collect(variables.confounders), col
 
 countuniques(dataset, colname) = DataFrames.combine(groupby(dataset, colname, skipmissing=true), nrow)
 
-function dataset_is_too_extreme(sampled_dataset, origin_dataset, variables_to_check; min_occurences=10)
-    for var in variables_to_check
-        # Check all levels are present in the smapled dataset
-        sampled_levels = Set(skipmissing(sampled_dataset[!, var]))
-        origin_levels = Set(skipmissing(origin_dataset[!, var]))
-        if sampled_levels != origin_levels
-            return true, string("Missing levels for variable: ", var)
-        end
-        # Check all levels occur at least `min_occurences` of times
-        n_uniques = countuniques(sampled_dataset, var)
-        if minimum(n_uniques.nrow) < min_occurences
-            return true, string("Not enough occurences for variable: ", var)
+levels_missing(sampled_vector, origin_vector) = Set(skipmissing(sampled_vector)) != Set(skipmissing(origin_vector))
+
+"""
+Checks that the multiclass variables have all their levels present in the sampled dataset
+"""
+function check_sampled_levels(sampled_dataset, origin_dataset, variables_to_check)
+    for variable in variables_to_check
+        if levels_missing(sampled_dataset[!, variable], origin_dataset[!, variable])
+            return true, string(variable)
         end
     end
     return false, ""
 end
 
-isfactor(col; nlevels=5) = length(levels(col; skipmissing=true)) < nlevels
+ismulticlass(col) = autotype(col, :few_to_finite) <: Union{Missing, <:Multiclass}
+
+multiclass_variables(origin_dataset, variables) =
+    filter(v -> ismulticlass(origin_dataset[!, v]), variables)
 
 """
     sample_from(origin_dataset::DataFrame, variables; 
         n=100, 
-        min_occurences=10,
         max_attempts=1000,
         verbosity = 1
     )
 
-This method jointly samples with replacement n samples of `variables` from `origin_dataset` after dropping missing values.
-It ensures that each level of each sampled factor variable is present at least `min_occurences` of times. 
-Otherwise a new sampling attempt is made and up to `max_attempts`.
+Tries to jointly sample non-missing values of `variables` from the `origin_dataset` for a maximum of `max_attempts`.
+Each sampled dataset is checked as follows:
+    1. The levels of sampled factor variables should match the levels in the original data.
 """
 function sample_from(origin_dataset::DataFrame, variables; 
     n=100,
-    variables_to_check=[],
-    min_occurences=10,
+    variables_to_check=multiclass_variables(origin_dataset, variables),
     max_attempts=1000,
     verbosity = 1
     )
     variables = collect(variables)
     variables_to_check = intersect(variables, variables_to_check)
     nomissing = dropmissing(origin_dataset[!, variables])
-    too_extreme, msg = Simulations.dataset_is_too_extreme(nomissing, origin_dataset, variables_to_check; min_occurences=min_occurences)
-    if too_extreme
+    levels_are_missing, msg = Simulations.check_sampled_levels(nomissing, origin_dataset, variables_to_check)
+    if levels_are_missing
         msg = string(
-            "Filtering of missing values resulted in a too extreme dataset. In particular: ", msg, 
+            "Filtering of missing values resulted in missing levels for variable ", msg, 
             ".\n Consider lowering or setting the `call_threshold` to `nothing`."
         )
         throw(ErrorException(msg))
     end
-    # Resample until the dataset is not too extreme
     for attempt in 1:max_attempts
         sample_rows = StatsBase.sample(1:nrow(nomissing), n, replace=true)
         sampled_dataset = nomissing[sample_rows, variables]
-        too_extreme, msg = dataset_is_too_extreme(sampled_dataset, nomissing, variables_to_check; min_occurences=min_occurences)
-        if !too_extreme
+        levels_are_missing, msg = check_sampled_levels(sampled_dataset, nomissing, variables_to_check)
+        if !levels_are_missing
             return sampled_dataset
         end
-        verbosity > 0 && @info(string("Sampled dataset after attempt ", attempt, " was too extreme. In particular: ", msg, ".\n Retrying."))
+        verbosity > 0 && @info(string("Sampled dataset after attempt ", attempt, " had missing levels. In particular: ", msg, ".\n Retrying."))
     end
     msg = string(
-        "Could not sample a dataset which wasn't too extreme after: ", max_attempts, 
-        " attempts. Possible solutions: increase `sample_size`, change your simulation estimands of increase `max_attempts`."
+        "Could not sample a dataset with all variables' levels in `variables_to_check` after: ", max_attempts, 
+        " attempts. Possible solutions: increase `sample_size`, change your simulation estimands or increase `max_attempts`."
     )
     throw(ErrorException(msg))
+end
+
+function sampled_vector_has_enough_occurences(sampled_vector, origin_vector; 
+    min_occurences=10
+    )
+    n_uniques = countmap(sampled_vector)
+    if length(n_uniques) != length(levels(origin_vector))
+        return false, "missing levels."
+    end
+    if minimum(values(n_uniques)) < min_occurences
+        return false, "not enough occurrences for each level."
+    end
+    return true, ""
+end
+
+"""
+    sample_from(origin_vector::AbstractVector; 
+        n=100,
+        min_occurences=10,
+        max_attempts=1000,
+    )
+    Tries to sample non-missing values from a vector for a maximum of `max_attempts`.
+    Each sampled vector is checked as follows:
+        1. The levels of sampled factor variables should match the levels in the original data.
+        2. The lowest populated sampled level of each factor variable should have more than `min_occurences` samples.
+"""
+function sample_from(origin_dataset::DataFrame, variable::Union{Symbol, AbstractString}; 
+    n=100,
+    min_occurences=10,
+    max_attempts=1000,
+    verbosity = 1
+    )
+    origin_vector = collect(skipmissing(origin_dataset[!, variable]))
+    for attempt in 1:max_attempts
+        sampled_vector = StatsBase.sample(origin_vector, n, replace=true)
+        # If binary of multiclass: check levels and occurences
+        if length(levels(sampled_vector)) == 2 || ismulticlass(sampled_vector)
+            has_enough_occurences, msg = Simulations.sampled_vector_has_enough_occurences(sampled_vector, origin_vector; 
+                min_occurences=min_occurences
+            )
+            if !has_enough_occurences
+                verbosity > 0 && @info(string("The sampled vector for variable ", variable, " had ", msg, "\nRetrying."))
+                continue
+            end
+        end
+        return sampled_vector
+    end
+    throw(ErrorException(string("Could not sample variable ", variable, " because it either did not have enough occurences or some levels were missing after ", max_attempts, 
+        " attempts.\nConsider increasing the sample size or changing your estimands.")))
 end
 
 variables_from_args(outcome, treatments, confounders, outcome_extra_covariates) = (
@@ -158,7 +204,6 @@ transpose_target(y, ::Nothing) = Float32.(reshape(y, 1, length(y)))
 transpose_table(X) = Float32.(Tables.matrix(X, transpose=true))
 transpose_table(estimator, X) =
     transpose_table(MLJBase.transform(estimator.encoder, X))
-
 
 function get_conditional_densities_variables(estimands)
     conditional_densities_variables = Set{Pair}([])

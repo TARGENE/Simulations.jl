@@ -45,6 +45,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
     rngs = [1, 2]
     sample_sizes = [100, 200]
     n_bootstraps = 2
+    (output_index, (estimator, rng, sample_size)) = first(enumerate(Iterators.product(estimators, rngs, sample_sizes)))
     for (output_index, (estimator, rng, sample_size)) ∈ enumerate(Iterators.product(estimators, rngs, sample_sizes))
         out = joinpath(outdir, string("null_estimation_results_", output_index, ".hdf5"))
         copy!(ARGS, [

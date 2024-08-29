@@ -42,7 +42,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test true_effects[estimands[3]] == [0, 0]
     # Raise if min_occurences not statisfied
     msg = string(
-        "Could not sample a dataset which wasn't too extreme after: 1 attempts. Possible solutions: increase `sample_size`, change your simulation estimands of increase `max_attempts`."
+        "Could not sample variable Ybin because it either did not have enough occurences or some levels were missing after 1 attempts.\nConsider increasing the sample size or changing your estimands."
     )
     @test_throws ErrorException(msg) sample_from(sampler, origin_dataset, n=10, min_occurences = 10, max_attempts=1, verbosity=0)
 

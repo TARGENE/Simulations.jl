@@ -127,27 +127,52 @@ end
         C = ["AA", "AC", "CC", "CC", "AA", "AC", "AC"],
         D = 1:7
     )
-    # Dropping missing results in CC not present in the dataset
-    error_msg = string(
-        "Filtering of missing values resulted in a too extreme dataset. In particular: Missing levels for variable: B.", 
-        "\n Consider lowering or setting the `call_threshold` to `nothing`."
-    )
-    @test_throws ErrorException(error_msg) sample_from(origin_dataset, [:A, :B]; variables_to_check=[:A, :B], n=2, min_occurences=0, verbosity=0)
-    # if min_occurences = 10, A won't have enough occurences and will raise first
-    error_msg = string(
-        "Filtering of missing values resulted in a too extreme dataset. In particular: Not enough occurences for variable: A.", 
-        "\n Consider lowering or setting the `call_threshold` to `nothing`."
-    )
-    @test_throws ErrorException(error_msg) sample_from(origin_dataset, [:A, :B]; variables_to_check=[:A, :B], n=2, min_occurences=10, verbosity=0)
-    # This will work
+    # Test Sample from a DataFrame
+    ## No problem here
     variables = [:A, :C, :D]
-    sampled_dataset = sample_from(origin_dataset, variables; n=4, variables_to_check=[:A, :C], min_occurences=0, verbosity=0)
+    sampled_dataset = sample_from(origin_dataset, variables; n=4, verbosity=0)
     all_rows = collect(eachrow(origin_dataset[!, variables]))
     for row in eachrow(sampled_dataset)
         @test row ∈ all_rows
     end
     @test length(unique(sampled_dataset.A)) == 3
     @test length(unique(sampled_dataset.C)) == 3
+    ## Dropping missing results in CC not present in the dataset for B
+    error_msg = string(
+        "Filtering of missing values resulted in missing levels for variable B.", 
+        "\n Consider lowering or setting the `call_threshold` to `nothing`."
+    )
+    @test_throws ErrorException(error_msg) sample_from(origin_dataset, [:A, :B]; n=2, verbosity=0)
+
+    # Now sample from a column Vector
+    ## Continuous variables always work
+    @test sample_from(origin_dataset, :D; 
+        n=10,
+        min_occurences=10,
+        max_attempts=10,
+        verbosity=0
+    ) isa Vector{Int64}
+    # Reasonnable min_occurences
+    @test sample_from(origin_dataset, "B"; 
+        n=100,
+        min_occurences=1,
+        max_attempts=10,
+        verbosity=0
+    ) isa Vector{String}
+    ## Raises because too many required occurences
+    @test_throws ErrorException sample_from(origin_dataset, :B; 
+        n=100,
+        min_occurences=100,
+        max_attempts=1,
+        verbosity = 1
+    )
+    ## Raises because not enough levels
+    @test_throws ErrorException sample_from(origin_dataset, "B"; 
+        n=2,
+        min_occurences=0,
+        max_attempts=10,
+        verbosity=1
+    )
 end
 
 @testset "Test coerce_parents_and_outcome!" begin

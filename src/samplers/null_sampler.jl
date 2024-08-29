@@ -1,9 +1,9 @@
 """
-The Permutation-Null-Sampler keeps the marginal distributions of each variable in the original dataset
+The NullSampler keeps the marginal distributions of each variable in the original dataset
 intact while disrupting the causal relationships between them. This is done by:
     1. Sampling from (W, C)
-    2. Permuting each T
-    3. Permuting Y
+    2. Sampling from each T independently
+    3. Sampling from each Y independently
 """
 struct NullSampler
     confounders_and_covariates
@@ -29,6 +29,21 @@ function NullSampler(outcome, treatments;
     return NullSampler(variables)
 end
 
+"""
+    sample_from(sampler::NullSampler, origin_dataset; 
+        n=100,
+        min_occurences=10,
+        max_attempts=1000,
+        verbosity=1
+    )
+    The procedure tries to:
+        1. Sample jointly from (W, C): 
+            - The levels of sampled factor variables should match the levels in the original data.
+        2. Sample independently for each T and Y: 
+            - The levels of sampled factor variables should match the levels in the original data.
+            - The lowest populated sampled level of each factor variable should have more than `min_occurences` samples.
+    each for a maximum of `max_attempts`.
+"""
 function sample_from(sampler::NullSampler, origin_dataset; 
     n=100,
     min_occurences=10,
@@ -37,21 +52,16 @@ function sample_from(sampler::NullSampler, origin_dataset;
     )
     sampled_dataset = sample_from(origin_dataset, collect(sampler.confounders_and_covariates); 
         n=n,
-        min_occurences=min_occurences,
         max_attempts=max_attempts,
         verbosity=verbosity
     )
     # Independently sample the rest of variables
-    variables_to_check = [var for var in sampler.other_variables if isfactor(origin_dataset[!, var])]
     for variable in sampler.other_variables
-        sampled_variable_df = sample_from(origin_dataset, [variable]; 
+        sampled_dataset[!, variable] = sample_from(origin_dataset, variable; 
             n=n,
-            variables_to_check=variables_to_check,
             min_occurences=min_occurences,
             max_attempts=max_attempts,
-            verbosity=verbosity
-        )
-        sampled_dataset[!, variable] = sampled_variable_df[!, variable]
+            )
     end
     return sampled_dataset
 end

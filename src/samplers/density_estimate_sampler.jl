@@ -99,9 +99,7 @@ function sample_roots_and_treatments(sampler::DensityEstimateSampler, origin_dat
     )
     # Sample Roots
     sampled_dataset = sample_from(origin_dataset, sampler.roots; 
-        n=n, 
-        min_occurences=min_occurences,
-        variables_to_check=[],
+        n=n,
         max_attempts=max_attempts,
         verbosity=verbosity
     )
