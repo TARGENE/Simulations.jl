@@ -198,7 +198,7 @@ end
 mutable struct NeuralNetworkEstimator
     model
     encoder::MLJBase.Machine
-    optimiser::Flux.Optimise.AbstractOptimiser
+    optimiser::Flux.AbstractRule
     resampling::MLJBase.ResamplingStrategy
     batchsize::Int
     patience::Int

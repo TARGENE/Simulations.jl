@@ -210,7 +210,7 @@ end
 
 function write_densities(output_prefix, trait_to_variants, estimands)
     # Initialise densities from trait_to_variants
-    conditional_densities = Dict(outcome => Set(variants) for (outcome, variants) in trait_to_variants)
+    conditional_densities = Dict(outcome => unique(variants) for (outcome, variants) in trait_to_variants)
     for Ψ ∈ estimands
         # Update outcome's parents list
         outcome = get_outcome(Ψ)
@@ -227,7 +227,7 @@ function write_densities(output_prefix, trait_to_variants, estimands)
         # Add treatment mechanism if not already present
         for treatment in treatments
             if !haskey(conditional_densities, treatment)
-                conditional_densities[string.(treatment)] = Set(string.(get_confounders(Ψ, treatment)))
+                conditional_densities[string.(treatment)] = sort(unique(string.(get_confounders(Ψ, treatment))))
             end
         end
     end
