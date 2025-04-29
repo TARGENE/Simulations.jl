@@ -390,7 +390,7 @@ function realistic_simulation_inputs(
     # Call variants from BGEN & Merge all data sources
     verbosity > 0 && @info("Calling genotypes from BGEN files.")
     variants_set = Set(string.(union(values(traits_to_variants)...)))
-    genotypes = TargeneCore.call_genotypes(
+    genotypes, _ = TargeneCore.call_genotypes(
         bgen_prefix, 
         variants_set, 
         call_threshold
