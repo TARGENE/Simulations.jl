@@ -1,7 +1,7 @@
 name = "Simulations"
 uuid = "d443f30a-01cc-4ad2-ad2b-7e2d1cb5fd9b"
 authors = ["Olivier Labayle <olabayle@gmail.com> and contributors"]
-version = "0.0.1"
+version = "0.1.0"
 
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
