@@ -126,17 +126,17 @@ end
     conditional_densities = Set([JSON.parsefile(f) for f in TargeneCore.files_matching_prefix(string(output_prefix, ".conditional_density"))])
     @test conditional_densities == Set([
         # Treatment mechanisms
-        Dict("parents" => ["PC2", "PC1"], "outcome" => "TREAT_1"),
-        Dict("parents" => ["PC2", "PC1"], "outcome" => "RSID_2"),
-        Dict("parents" => ["PC2", "PC1"], "outcome" => "RSID_198"),
+        Dict("parents" => ["PC1", "PC2"], "outcome" => "TREAT_1"),
+        Dict("parents" => ["PC1", "PC2"], "outcome" => "RSID_2"),
+        Dict("parents" => ["PC1", "PC2"], "outcome" => "RSID_198"),
         # Outcome mechanisms: inferred from ATE with ALL
-        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "BINARY_2"),
-        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "COV_1"),
-        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "CONTINUOUS_2"),
-        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "21003"),
-        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "PC1"], "outcome" => "CONTINUOUS_1"),
+        Dict("parents" => ["RSID_2", "22001", "TREAT_1", "PC1", "PC2"], "outcome" => "BINARY_2"),
+        Dict("parents" => ["RSID_2", "22001", "TREAT_1", "PC1", "PC2"], "outcome" => "COV_1"),
+        Dict("parents" => ["RSID_2", "22001", "TREAT_1", "PC1", "PC2"], "outcome" => "CONTINUOUS_2"),
+        Dict("parents" => ["RSID_2", "22001", "TREAT_1", "PC1", "PC2"], "outcome" => "21003"),
+        Dict("parents" => ["RSID_2", "22001", "TREAT_1", "PC1", "PC2"], "outcome" => "CONTINUOUS_1"),
         # Outcome mechanisms: from both JointEstimand and ATE with ALL, note the presence of TREAT_1 in the parents
-        Dict("parents" => ["TREAT_1", "RSID_2", "22001", "PC2", "RSID_198", "PC1"], "outcome" => "BINARY_1")
+        Dict("parents" => ["RSID_2", "RSID_198", "22001","TREAT_1", "PC1", "PC2"], "outcome" => "BINARY_1")
     ])
     # Check dataset
     dataset = Arrow.Table(string(output_prefix, ".data.arrow")) |> DataFrame

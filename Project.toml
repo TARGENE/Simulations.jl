@@ -1,7 +1,7 @@
 name = "Simulations"
 uuid = "d443f30a-01cc-4ad2-ad2b-7e2d1cb5fd9b"
 authors = ["Olivier Labayle <olabayle@gmail.com> and contributors"]
-version = "0.0.1"
+version = "0.1.0"
 
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
@@ -36,7 +36,12 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-julia = "1.10"
+BGEN = "0.2.2"
+JLD2 = "0.5"
+TMLE = "0.18.1"
+TMLECLI = "0.10.2"
+TargeneCore = "0.9.0"
+julia = "1.10, 1.11"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
