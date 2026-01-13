@@ -149,7 +149,7 @@ function counterfactual_aggregate(Ψ, Q, X)
     for (vals, sign) in TMLE.indicator_fns(Ψ)
         # Counterfactual dataset for a given treatment setting
         T_ct = TMLE.counterfactualTreatment(vals, Ttemplate)
-        X_ct = merge(X, T_ct)
+        X_ct = DataFrame((;(Symbol(colname) => colname ∈ names(T_ct) ? T_ct[!, colname] : X[!, colname] for colname in names(X))...))
         # Counterfactual mean
         ctf_agg .+= sign .* TMLE.expected_value(Q, X_ct)
     end
